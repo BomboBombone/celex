@@ -2,8 +2,8 @@
 A python Program used to automate the sorting of excel files.
 
 ## Why should I use Celex?
-**Celex** is a program developed as an interacive interface to **automate** some tasks that would otherwise be extremely tedious and time-consuming.
-When working in any commercial department in a big or small company, it is often the case that orders come in **excel** format.
+**Celex** is a program developed as an interacive interface to **automate** some tasks that would otherwise be extremely tedious and time-consuming.\n
+When working in any commercial department in a big or small company, it is often the case that orders come in **excel** format.\n
 Nonetheless every company uses a different standard to pass order informations to the managment (which tells the actual workers what to produce).
 This means that between a company and another there will be almost always a different standard to make or receive orders.
 To actually convert an order to a file ready to be sent to one's own managment sector it takes time and effort, filtering useful information to be passed on
