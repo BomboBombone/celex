@@ -99,8 +99,8 @@ if __name__ == '__main__':
         try:  # in case running with old version of PySimpleGUI that doesn't have a global PSG settings path
             global_editor = sg.pysimplegui_user_settings.get('-editor program-')
         except:
-            global_editor = 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE'
-        user_editor = sg.user_settings_get_entry('-editor program-', 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE')
+            global_editor = 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE'
+        user_editor = sg.user_settings_get_entry('-editor program-', 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE')
         if user_editor == '':
             user_editor = global_editor
 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         except:
             global_theme = sg.theme()
         # Get theme from user settings for this program.  Use global theme if no entry found
-        user_theme = sg.user_settings_get_entry('-theme-', '')
+        user_theme = sg.user_settings_get_entry('-theme-', 'DarkGrey14')
         if user_theme == '':
             user_theme = global_theme
         return user_theme
@@ -465,11 +465,11 @@ if __name__ == '__main__':
                             key='-FOLDERNAME-'),
                    sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'), sg.B('Pulisci')],
                   [sg.T('Editor', font='_ 16')],
-                  [sg.T('Lascia vuoto per usare quello di default'), sg.T('C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE')],
-                  [sg.In(sg.user_settings_get_entry('-editor program-', 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE'), k='-EDITOR PROGRAM-'), sg.FileBrowse()],
+                  [sg.T('Lascia vuoto per usare quello di default'), sg.T('C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE')],
+                  [sg.In(sg.user_settings_get_entry('-editor program-', 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE'), k='-EDITOR PROGRAM-'), sg.FileBrowse()],
                   [sg.T('Esplora file', font='_ 16')],
-                  [sg.T('Lascia vuoto per usare il default'), sg.T('C:\\Windows\\explorer.exe')],
-                  [sg.In(sg.user_settings_get_entry('-explorer program-', 'C:\\Windows\\explorer.exe'), k='-EXPLORER PROGRAM-'), sg.FileBrowse()],
+                  [sg.T('Lascia vuoto per usare il default'), sg.T('C:/Windows/explorer.exe')],
+                  [sg.In(sg.user_settings_get_entry('-explorer program-', 'C:/Windows/explorer.exe'), k='-EXPLORER PROGRAM-'), sg.FileBrowse()],
                   [sg.T('Tema', font='_ 16')],
                   [sg.T('Lascia vuoto per usare il default'), sg.T('DarkGrey14')],
                   [sg.Combo([''] + sg.theme_list(), sg.user_settings_get_entry('-theme-', 'DarkGrey14'), readonly=True,
@@ -686,8 +686,6 @@ if __name__ == '__main__':
                 rule_list_dict = celex.getRuleListDict()
                 columns_filter = celex.readColumnList()
 
-                print(find_in_file('SI', celex))
-
                 list_row = celex.getRowListSQL(celex.getDemoListEntry()[0])
                 for row in list_row:
                     # Creates a to_separate list where each entry is a list of strings to separate in different cells
@@ -742,19 +740,13 @@ if __name__ == '__main__':
                     if find_in_file.file_list_dict is None or old_typed_value is None or old_ignore_case is not is_ignore_case:
                         # New search.
                         old_typed_value = current_typed_value
-                        file_list = find_in_file(values['-FIND-'], get_file_list_dict(),
-                                                 window=window, ignore_case=is_ignore_case,
-                                                 show_first_match=values['-FIRST MATCH ONLY-'])
+                        file_list = find_in_file(values['-FIND-'], celex)
                     elif current_typed_value.startswith(old_typed_value) and old_ignore_case is is_ignore_case:
                         old_typed_value = current_typed_value
-                        file_list = find_in_file(values['-FIND-'], find_in_file.file_list_dict,
-                                                 window=window, ignore_case=is_ignore_case,
-                                                 show_first_match=values['-FIRST MATCH ONLY-'])
+                        file_list = find_in_file(values['-FIND-'], celex)
                     else:
                         old_typed_value = current_typed_value
-                        file_list = find_in_file(values['-FIND-'], get_file_list_dict(),
-                                                 window=window, ignore_case=is_ignore_case,
-                                                 show_first_match=values['-FIRST MATCH ONLY-'])
+                        file_list = find_in_file(values['-FIND-'], celex)
                     window['-DEMO LIST-'].update(sorted(file_list))
                     window['-FIND NUMBER-'].update(f'{len(file_list)} file')
                     window['-FILTER NUMBER-'].update('')
@@ -762,8 +754,7 @@ if __name__ == '__main__':
                     window['-FILTER-'].update('')
                 elif values['-FIND RE-']:
                     window['-ML-'].update('')
-                    file_list = find_in_file(values['-FIND RE-'], get_file_list_dict(), regex=True,
-                                             window=window)
+                    file_list = find_in_file(values['-FIND RE-'], celex)
                     window['-DEMO LIST-'].update(sorted(file_list))
                     window['-FIND NUMBER-'].update(f'{len(file_list)} file')
                     window['-FILTER NUMBER-'].update('')
@@ -771,8 +762,7 @@ if __name__ == '__main__':
                     window['-FILTER-'].update('')
             elif event == 'Trova REGEX':
                 window['-ML-'].update('')
-                file_list = find_in_file(values['-FIND RE-'], get_file_list_dict(), regex=True,
-                                         window=window)
+                file_list = find_in_file(values['-FIND RE-'], celex)
                 window['-DEMO LIST-'].update(sorted(file_list))
                 window['-FIND NUMBER-'].update(f'{len(file_list)} file')
                 window['-FILTER NUMBER-'].update('')
