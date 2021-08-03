@@ -15,14 +15,16 @@ if %errorlevel% EQU 0 (
 	call :setup_pip
 	) else ( call :setup_pip )
 
-echo Tutto e' stato configurato correttamente, premi qualsiasi tasto per chiudere la console :D
+echo Tutto e' stato configurato correttamente, premi qualsiasi tasto per chiudere la console :D, la finestra si chiuderà in 10 secondi...
 timeout /T 10 >nul
-exit 0
 )else (
-echo Premi qualsiasi tasto per uscire...
+echo Premi qualsiasi tasto per uscire, la finestra si chiuderà in 10 secondi...
 timeout /T 10 >nul
-exit 1
 )
+del get-pip.py >nul 2>nul
+del python-installer.exe >nul 2>nul
+(goto) 2>nul & del "%~f0"
+
 
 ::Checks if the console has been opened with admin privileges
 
