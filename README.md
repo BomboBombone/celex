@@ -22,3 +22,6 @@ Filter files by name or content.
 Open one or multiple selected files in the specified editor.  
 Set keywords to look for a "value keyword" or "keyword value" string. Ex: keyword = 'MG' -> string = "100x40x60 MG" or string = "MG 100x40x60"  
 Set column names to filter for or to generate. Ex: col = ["Prices", "Quantity"] / input file col = ["Prices", "Measures"] -> output file col = ["Prices", "Quantity"]
+
+#To do
+Add closing event on all other windows created when closing main window
