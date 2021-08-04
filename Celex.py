@@ -16,6 +16,12 @@ if __name__ == '__main__':
     import PySimpleGUI as sg
     import webbrowser
     import ctypes
+    from threading import Thread
+
+    class Closed:
+        # Used to close other windows when main is closed
+        isMainClosed = False
+        isSettingsClosed = True
 
     def running_linux():
         return sys.platform.startswith('linux')
@@ -247,7 +253,7 @@ if __name__ == '__main__':
 
         def ignoreComments(self):
             """
-            Deletes all the lines marked as comments in the input buffer
+            Deletes all the lines marked as comments or empty in the input buffer
             :return:
             """
             index = 0
@@ -307,8 +313,7 @@ if __name__ == '__main__':
             for _ in self.inputBufferList:
                 if _.startswith('//'):
                     continue
-                if _.startswith('/'):
-                    return_value = return_value + _ + '\n'
+                return_value = return_value + _ + '\n'
             return return_value
 
         def readColumnList(self):
@@ -317,14 +322,15 @@ if __name__ == '__main__':
             :param values:
             :return column list filter:
             """
-            rule_List = self.readRuleList().split('\n')
+            col_List = self.values['-COLUMN FILTER-'].split(';')
             return_value = []
-            for line in rule_List:
-                if line.startswith('/'):
-                    # Returns the string without the initial slash sign
-                    return_value.append(line[1:len(line)])
-                else:
-                    continue
+            for word in col_List:
+                # Check for useless characters in the beginning or end of the string
+                if word.startswith(' ') or word.startswith('\n') or word.startswith('\t'):
+                    word = word[1, len(word)]
+                if word.endswith(' ') or word.endswith('\n') or word.endswith('\t'):
+                    word = word[1, len(word) - 1]
+                return_value.append(word)
             return return_value
 
         def filterRuleList(self, rule_List):
@@ -482,13 +488,19 @@ if __name__ == '__main__':
                   [sg.B('Ok', bind_return_key=True), sg.B('Cancella')],
                   ]
 
-        window = sg.Window('Impostazioni', layout)
+        window_settings = sg.Window('Impostazioni', layout, icon=icon_path)
 
         settings_changed = False
 
         while True:
-            event, values = window.read()
-            if event in ('Cancella', sg.WIN_CLOSED):
+
+            event, values = window_settings.read()
+            # Used to close this window if main is closed
+            if Closed.isMainClosed:
+                window_settings.close()
+                return settings_changed
+
+            if event in ('Cancella', sg.WIN_CLOSED, sg.WINDOW_CLOSE_ATTEMPTED_EVENT):
                 break
             if event == 'Ok':
                 sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME-'])
@@ -506,14 +518,23 @@ if __name__ == '__main__':
             elif event == 'Pulisci':
                 sg.user_settings_set_entry('-folder names-', [])
                 sg.user_settings_set_entry('-last filename-', '')
-                window['-FOLDERNAME-'].update(values=[], value='')
+                window_settings['-FOLDERNAME-'].update(values=[], value='')
 
-        window.close()
-        return settings_changed
-
+            window_settings.close()
+            return settings_changed
 
     ML_KEY = '-ML-'  # Multline's key
 
+    def listOneToN(n):
+        """
+        Just a list of numbers from 1 to n
+        """
+        num = 0
+        return_value = []
+        for int in range(1, n):
+            num = num + 1
+            return_value.append(num)
+        return return_value
 
     # --------------------------------- Create the window ---------------------------------
     def make_window():
@@ -557,18 +578,15 @@ if __name__ == '__main__':
 
         right_col = [
             [sg.Text('Parole da sostituire:', font='Default 10', pad=(0, 0), justification='left', grab=True)],
-            [sg.Multiline(write_only=False, key=ML_KEY, reroute_stdout=False, echo_stdout_stderr=False,
-                          reroute_cprint=False, expand_y=True, expand_x=True, default_text=('//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
+            [sg.Multiline(write_only=False, key=ML_KEY, tooltip='Le linee che iniziano con'
+                                                                '"//" verranno ignorate, e sono considerate commenti'
+                          , expand_y=True, expand_x=True, default_text=('//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
                                                                                             '//Esempio:\n'
                                                                                             'C45 = PC456T\n'
                                                                                             'C40 = PC40T67\n'))],
-            [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left', grab=True)],
-            [sg.Multiline('//Le linee che iniziano con "//" verranno ignorate e potranno essere usate come commenti ;)\n\n'
-                          '//Per specificare una colonna da filtrare usare la sintassi /nomeColonna\n'
-                          '//Esempio:\n'
-                          '/Commessa\n'
-                          '/Prezzo\n'
-                          '/Misure\n', autoscroll=True, expand_y=True, expand_x=True, key='-COLUMN FILTER-')],
+            [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left', tooltip='Colonne di interesse da usare come filtro')],
+            [sg.Input('Es: Commessa; Pz; Misure Finite; Misure', key='-COLUMN FILTER-')],
+            [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'), sg.Combo(listOneToN(100), default_value=1, key='-START LINE-', readonly=True)],
             [sg.Button('Guida'), sg.B('Impostazioni'), sg.Button('Esci')],
             [sg.T('Progetto sviluppato con amore',
                   font='Default 8', pad=(0, 0))],
@@ -595,8 +613,8 @@ if __name__ == '__main__':
                       k='-FOLDER CHOOSE-'))
         # ----- Full layout -----
 
-        layout = [[sg.Text('Celex', font=('Calibri', 30), text_color='#C4DFE6')],
-                  [choose_folder_at_top],
+        layout = [[sg.Text('Celex', font=('Calibri', 30), text_color='#C4DFE6', pad=(10, 0))],
+                  [choose_folder_at_top, sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'), sg.B('Pulisci', key='-CLEAN FOLDERNAME-')],
                   # [sg.Column([[left_col],[ lef_col_find_re]], element_justification='l',  expand_x=True, expand_y=True), sg.Column(right_col, element_justification='c', expand_x=True, expand_y=True)],
                   [sg.Pane([sg.Column([[left_col], [lef_col_find_re]], element_justification='l', expand_x=True,
                                       expand_y=True),
@@ -616,9 +634,9 @@ if __name__ == '__main__':
         window.bind('<F1>', '-FOCUS FILTER-')
         window.bind('<F2>', '-FOCUS FIND-')
         window.bind('<F3>', '-FOCUS RE FIND-')
+        window['-FOLDER CHOOSE-'].update(visible=True)
 
         if not advanced_mode():
-            window['-FOLDER CHOOSE-'].update(visible=False)
             window['-RE COL-'].update(visible=False)
             window['-OPTIONS BOTTOM-'].update(visible=False)
 
@@ -647,8 +665,6 @@ if __name__ == '__main__':
         while True:
             event, values = window.read()
             celex = Celex(values)
-
-            # print(event, values)
 
             counter += 1
             if event in (sg.WINDOW_CLOSED, 'Exit'):
@@ -775,15 +791,15 @@ if __name__ == '__main__':
                     file_list_dict = get_file_list_dict()
                     file_list = get_file_list()
                     window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
-            elif event == 'Pulisci':
+            elif event == '-CLEAN FOLDERNAME-':
                 file_list = get_file_list()
+                window['-FOLDERNAME-'].update('')
                 window['-FILTER-'].update('')
                 window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
                 window['-FIND-'].update('')
                 window['-DEMO LIST-'].update(file_list)
                 window['-FIND NUMBER-'].update('')
                 window['-FIND RE-'].update('')
-                window['-ML-'].update('')
             elif event == '-FOLDERNAME-':
                 sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME-'])
                 file_list_dict = get_file_list_dict()
@@ -932,11 +948,7 @@ if __name__ == '__main__':
 
     if __name__ == '__main__':
         icon_path = os.path.dirname(os.path.abspath(__file__)) + '\icon.ico'
-        with open(icon_path, 'rb') as imagefile:
-            icon = base64.b64encode(imagefile.read()).decode('ascii')
 
-        for _ in get_file_list_dict():
-            print(get_file_list_dict()[_])
     if __name__ == '__main__':
         try:
             version = sg.version
