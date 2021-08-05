@@ -18,10 +18,12 @@ if __name__ == '__main__':
     import ctypes
     from threading import Thread
 
+
     class Closed:
         # Used to close other windows when main is closed
         isMainClosed = False
         isSettingsClosed = True
+
 
     def running_linux():
         return sys.platform.startswith('linux')
@@ -29,6 +31,7 @@ if __name__ == '__main__':
 
     def running_windows():
         return sys.platform.startswith('win')
+
 
     def get_file_list_dict():
         """
@@ -106,7 +109,8 @@ if __name__ == '__main__':
             global_editor = sg.pysimplegui_user_settings.get('-editor program-')
         except:
             global_editor = 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE'
-        user_editor = sg.user_settings_get_entry('-editor program-', 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE')
+        user_editor = sg.user_settings_get_entry('-editor program-',
+                                                 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE')
         if user_editor == '':
             user_editor = global_editor
 
@@ -180,31 +184,47 @@ if __name__ == '__main__':
     def kill_ascii(s):
         return "".join([x if ord(x) < 128 else '?' for x in s])
 
+
     """
     User defined functions for excel usage
     """
+
+
     class Celex:
         class Excel:
             def __init__(self, excel):
                 self.excel = excel
-            def filterByColumn(self, columns: list):
+
+            def filterByColumn(self, columns: list, values):
                 """
                 Takes an excel data frame string literal representation created by pandas and generates a new representation
                 which uses the filter specified in the parameter columns, which needs to be a list
-                :param excel:
+                :param values:
                 :param columns:
-                :return string:
+                :return [string, list]:
                 """
-                return self.excel[columns]
+                missingColumns = []
+                # Loop to check if every column in the column list exists in the source excel
+                for column in columns:
+                    try:
+                        bufferDF = self.excel[[column]]
+                    # If bufferDF creates an exception the column will be popped
+                    except KeyError:
+                        columns.pop(columns.index(column))
+                        # If -CREATE MISSING- is true, the missing columns will be added later on
+                        if values['-CREATE MISSING-']:
+                            # First it is added to missing columns
+                            missingColumns.append(columns[columns.index(column)])
+                return [self.excel[[columns]], missingColumns]
 
         class SqLite:
             def __init__(self, db):
                 self.db = db
 
         def __init__(self, values):
-                self.values = values
-                self.inputBufferList = self.createInputBufferList()
-            
+            self.values = values
+            self.inputBufferList = self.createInputBufferList()
+
         def checkKeyWord(self, index, entry, splitList: list, word, keyWord, typeToCheck, isLastOneUsed):
             """
             Used to check if the current word being checked contains the keyword, and if it is so
@@ -301,7 +321,6 @@ if __name__ == '__main__':
                 full_filename = full_filename.split(' ')[1]
                 full_filename = full_filename[1:len(full_filename) - 1]
             return full_filename
-
 
         def readRuleList(self):
             """
@@ -431,6 +450,7 @@ if __name__ == '__main__':
                         return_value.append(file_path.split('/')[len(file_path.split('/')) - 1])
         return return_value
 
+
     def control_variables_window():
         """
         Shows the window used to specify which values to look for when sorting out the entries in
@@ -449,7 +469,7 @@ if __name__ == '__main__':
         """
         layout = [[sg.Text('Valori di controllo', font='DEFAULT 25')],
                   [sg.Text('Inserisci sotto i valori', font='_ 16')],
-                  [sg.CB('Attivo',text_color='red'), sg.Input('Valore'), sg.Combo([], )]]
+                  [sg.CB('Attivo', text_color='red'), sg.Input('Valore'), sg.Combo([], )]]
 
         try:
             global_editor = sg.pysimplegui_user_settings.get('-editor program-')
@@ -471,11 +491,15 @@ if __name__ == '__main__':
                             key='-FOLDERNAME-'),
                    sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'), sg.B('Pulisci')],
                   [sg.T('Editor', font='_ 16')],
-                  [sg.T('Lascia vuoto per usare quello di default'), sg.T('C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE')],
-                  [sg.In(sg.user_settings_get_entry('-editor program-', 'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE'), k='-EDITOR PROGRAM-'), sg.FileBrowse()],
+                  [sg.T('Lascia vuoto per usare quello di default'),
+                   sg.T('C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE')],
+                  [sg.In(sg.user_settings_get_entry('-editor program-',
+                                                    'C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE'),
+                         k='-EDITOR PROGRAM-'), sg.FileBrowse()],
                   [sg.T('Esplora file', font='_ 16')],
                   [sg.T('Lascia vuoto per usare il default'), sg.T('C:/Windows/explorer.exe')],
-                  [sg.In(sg.user_settings_get_entry('-explorer program-', 'C:/Windows/explorer.exe'), k='-EXPLORER PROGRAM-'), sg.FileBrowse()],
+                  [sg.In(sg.user_settings_get_entry('-explorer program-', 'C:/Windows/explorer.exe'),
+                         k='-EXPLORER PROGRAM-'), sg.FileBrowse()],
                   [sg.T('Tema', font='_ 16')],
                   [sg.T('Lascia vuoto per usare il default'), sg.T('DarkGrey14')],
                   [sg.Combo([''] + sg.theme_list(), sg.user_settings_get_entry('-theme-', 'DarkGrey14'), readonly=True,
@@ -523,7 +547,9 @@ if __name__ == '__main__':
             window_settings.close()
             return settings_changed
 
+
     ML_KEY = '-ML-'  # Multline's key
+
 
     def listOneToN(n):
         """
@@ -535,6 +561,7 @@ if __name__ == '__main__':
             num = num + 1
             return_value.append(num)
         return return_value
+
 
     # --------------------------------- Create the window ---------------------------------
     def make_window():
@@ -580,29 +607,35 @@ if __name__ == '__main__':
             [sg.Text('Parole da sostituire:', font='Default 10', pad=(0, 0), justification='left', grab=True)],
             [sg.Multiline(write_only=False, key=ML_KEY, tooltip='Le linee che iniziano con'
                                                                 '"//" verranno ignorate, e sono considerate commenti'
-                          , expand_y=True, expand_x=True, default_text=('//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
-                                                                                            '//Esempio:\n'
-                                                                                            'C45 = PC456T\n'
-                                                                                            'C40 = PC40T67\n'))],
-            [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left', tooltip='Colonne di interesse da usare come filtro')],
+                          , expand_y=True, expand_x=True,
+                          default_text=('//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
+                                        '//Esempio:\n'
+                                        'C45 = PC456T\n'
+                                        'C40 = PC40T67\n'))],
+            [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left',
+                     tooltip='Colonne di interesse da usare come filtro')],
             [sg.Input('Es: Commessa; Pz; Misure Finite; Misure', key='-COLUMN FILTER-')],
-            [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'), sg.Combo(listOneToN(100), default_value=1, key='-START LINE-', readonly=True)],
+            [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
+             sg.Combo(listOneToN(100), default_value=1, key='-START LINE-', readonly=True)],
             [sg.Button('Guida'), sg.B('Impostazioni'), sg.Button('Esci')],
-            [sg.T('Progetto sviluppato con amore',
-                  font='Default 8', pad=(0, 0))],
+            [sg.T('Progetto sviluppato con amore', font='Default 8', pad=(0, 0))],
             [sg.T('Per quella grandissima troia di', font='Default 8', pad=(0, 0))],
             [sg.T('Alice', font='Default 8', pad=(0, 0))],
         ]
 
-        options_at_bottom = sg.pin(sg.Column([[sg.CB('Mostra solo il primo risultato nel file', default=True, enable_events=True,
-                                                     k='-FIRST MATCH ONLY-'),
-                                               sg.CB('Ignora maiuscolo', default=True, enable_events=True,
-                                                     k='-IGNORE CASE-'),
-                                               sg.CB('Attendi completamento', default=False, enable_events=True,
-                                                     k='-WAIT-', visible=False),
-                                               ]],
-                                             pad=(0, 0), k='-OPTIONS BOTTOM-', expand_x=True, expand_y=False),
-                                   expand_x=True, expand_y=False)
+        options_at_bottom = sg.pin(
+            sg.Column([[sg.CB('Mostra solo il primo risultato nel file', default=True, enable_events=True,
+                              k='-FIRST MATCH ONLY-'),
+                        sg.CB('Ignora maiuscolo', default=True, enable_events=True,
+                              k='-IGNORE CASE-'),
+                        sg.CB('Attendi completamento', default=False, enable_events=True,
+                              k='-WAIT-', visible=False),
+                        sg.CB('Crea colonne mancanti', tooltip='Decidi se creare le colonne mancanti '
+                                                               'all\'interno del file di origine', default=False,
+                              k='-CREATE MISSING-')
+                        ]],
+                      pad=(0, 0), k='-OPTIONS BOTTOM-', expand_x=True, expand_y=False),
+            expand_x=True, expand_y=False)
 
         choose_folder_at_top = sg.pin(
             sg.Column([[sg.T('Clicca Impostazioni per cambiare la cartella selezionata'),
@@ -614,11 +647,12 @@ if __name__ == '__main__':
         # ----- Full layout -----
 
         layout = [[sg.Text('Celex', font=('Calibri', 30), text_color='#C4DFE6', pad=(10, 0))],
-                  [choose_folder_at_top, sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'), sg.B('Pulisci', key='-CLEAN FOLDERNAME-')],
+                  [choose_folder_at_top, sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'),
+                   sg.B('Pulisci', key='-CLEAN FOLDERNAME-')],
                   # [sg.Column([[left_col],[ lef_col_find_re]], element_justification='l',  expand_x=True, expand_y=True), sg.Column(right_col, element_justification='c', expand_x=True, expand_y=True)],
                   [sg.Pane([sg.Column([[left_col], [lef_col_find_re]], element_justification='l', expand_x=True,
                                       expand_y=True),
-                            sg.Column(right_col, element_justification='l', expand_x=True, expand_y=True,)],
+                            sg.Column(right_col, element_justification='l', expand_x=True, expand_y=True, )],
                            orientation='h', relief=sg.RELIEF_SUNKEN, k='-PANE-', show_handle=False)],
                   [options_at_bottom], ]
 
@@ -639,6 +673,7 @@ if __name__ == '__main__':
         if not advanced_mode():
             window['-RE COL-'].update(visible=False)
             window['-OPTIONS BOTTOM-'].update(visible=False)
+            window['-CREATE MISSING-'].update(visible=False)
 
         # sg.cprint_set_output_destination(window, ML_KEY)
         return window
@@ -683,7 +718,7 @@ if __name__ == '__main__':
                     # Takes the entry selected by the user and sets full_filename to the path of such file
                     full_filename, line = file, 1
                     full_filename = full_filename.split(' ')[1]
-                    full_filename = full_filename[1:len( full_filename ) - 1]
+                    full_filename = full_filename[1:len(full_filename) - 1]
                     if line is not None:
                         if using_local_editor():
                             execute_command_subprocess(editor_program, full_filename)
@@ -724,8 +759,10 @@ if __name__ == '__main__':
                                 if isLastOneUsed:
                                     continue
                                 for filter in columns_filter:
-                                    splitList = celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[0]
-                                    isLastOneUsed = celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[1]
+                                    splitList = \
+                                    celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[0]
+                                    isLastOneUsed = \
+                                    celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[1]
                 print(splitList)
 
 
@@ -822,6 +859,7 @@ if __name__ == '__main__':
                         execute_command_subprocess(explorer_program, file_path)
 
         window.close()
+
 
     def execute_py_file_with_pipe_output(pyfile, parms=None, cwd=None, interpreter_command=None, wait=False,
                                          pipe_output=False):
