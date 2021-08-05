@@ -603,6 +603,22 @@ if __name__ == '__main__':
             [sg.Text('Trova (F3):', tooltip=find_re_tooltip),
              sg.Input(size=(25, 1), key='-FIND RE-', tooltip=find_re_tooltip), sg.B('Trova REGEX')]], k='-RE COL-'))
 
+        column_filter_in = sg.pin(sg.Column([
+            [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left',
+                     tooltip='Colonne di interesse da usare come filtro'),
+             sg.Input('Es: Commessa; Pz; Misure Finite; Misure', key='-COLUMN FILTER-')]
+        ])
+        )
+
+        column_filter_out = sg.pin(sg.Column([
+            [sg.Input('Es: 769KF3; Celex', tooltip='Lascia vuoto per creare colonne vuote.\n'
+                                                   'Se più colonne nuove vengono create'
+                                                   'ogni colonna sarà riempita con un elemento nella lista',
+                      key='-FILL INPUT-', visible=False)]], justification='l')
+        )
+
+        column_filter = [column_filter_in, column_filter_out]
+
         right_col = [
             [sg.Text('Parole da sostituire:', font='Default 10', pad=(0, 0), justification='left', grab=True)],
             [sg.Multiline(write_only=False, key=ML_KEY, tooltip='Le linee che iniziano con'
@@ -612,9 +628,7 @@ if __name__ == '__main__':
                                         '//Esempio:\n'
                                         'C45 = PC456T\n'
                                         'C40 = PC40T67\n'))],
-            [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left',
-                     tooltip='Colonne di interesse da usare come filtro')],
-            [sg.Input('Es: Commessa; Pz; Misure Finite; Misure', key='-COLUMN FILTER-')],
+            [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
              sg.Combo(listOneToN(100), default_value=1, key='-START LINE-', readonly=True)],
             [sg.Button('Guida'), sg.B('Impostazioni'), sg.Button('Esci')],
@@ -632,7 +646,7 @@ if __name__ == '__main__':
                               k='-WAIT-', visible=False),
                         sg.CB('Crea colonne mancanti', tooltip='Decidi se creare le colonne mancanti '
                                                                'all\'interno del file di origine', default=False,
-                              k='-CREATE MISSING-')
+                              k='-CREATE MISSING-', enable_events=True)
                         ]],
                       pad=(0, 0), k='-OPTIONS BOTTOM-', expand_x=True, expand_y=False),
             expand_x=True, expand_y=False)
@@ -658,7 +672,7 @@ if __name__ == '__main__':
 
         # --------------------------------- Create Window ---------------------------------
         window = sg.Window('Celex', layout, finalize=True, icon=icon_path, resizable=True,
-                           use_default_focus=False, size=(1200, 800))
+                           use_default_focus=False, size=(1000, 800))
         window.set_min_size(window.size)
         window.bring_to_front()
         window['-DEMO LIST-'].expand(True, True, True)
@@ -686,6 +700,8 @@ if __name__ == '__main__':
         The main program that contains the event loop.
         It will call the make_window function to create the window.
         """
+        # Control variables
+        is_fill_input_visible = False
 
         find_in_file.file_list_dict = None
 
@@ -760,9 +776,11 @@ if __name__ == '__main__':
                                     continue
                                 for filter in columns_filter:
                                     splitList = \
-                                    celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[0]
+                                        celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[
+                                            0]
                                     isLastOneUsed = \
-                                    celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[1]
+                                        celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[
+                                            1]
                 print(splitList)
 
 
@@ -858,6 +876,13 @@ if __name__ == '__main__':
                             file_path = file_path.replace('/', '\\')
                         execute_command_subprocess(explorer_program, file_path)
 
+            if event == '-CREATE MISSING-':
+                if not is_fill_input_visible:
+                    window['-FILL INPUT-'].update(visible=True)
+                    is_fill_input_visible = True
+                else:
+                    window['-FILL INPUT-'].update(visible=False)
+                    is_fill_input_visible = False
         window.close()
 
 
