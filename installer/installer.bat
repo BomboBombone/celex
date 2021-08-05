@@ -14,6 +14,7 @@ if %errorlevel% EQU 0 (
 	call :install_pip
 	call :setup_pip
 	) else ( call :setup_pip )
+call :createShortCut
 
 echo Tutto e' stato configurato correttamente, premi qualsiasi tasto per chiudere la console :D, la finestra si chiuderà in 10 secondi...
 timeout /T 10 >nul
@@ -23,6 +24,7 @@ timeout /T 10 >nul
 )
 del get-pip.py >nul 2>nul
 del python-installer.exe >nul 2>nul
+del create_shortcut.ps1 >nul 2>nul
 (goto) 2>nul & del "%~f0"
 
 
@@ -105,3 +107,7 @@ pip install pysimplegui >nul 2>&1
 pip install xlrd >nul 2>&1
 pip install pandas >nul 2>&1
 EXIT /B 0
+
+:createShortCut
+::Calls a powershell to create a shortcut
+powershell.exe -ExecutionPolicy Bypass -Command "%~dp0create_shortcut.ps1 %~dp0../"
