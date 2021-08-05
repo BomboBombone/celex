@@ -14,7 +14,9 @@ if %errorlevel% EQU 0 (
 	call :install_pip
 	call :setup_pip
 	) else ( call :setup_pip )
+call :moveCelex
 call :createShortCut
+call :addToPath
 
 echo Tutto e' stato configurato correttamente, premi qualsiasi tasto per chiudere la console :D, la finestra si chiuderà in 10 secondi...
 timeout /T 10 >nul
@@ -108,6 +110,18 @@ pip install xlrd >nul 2>&1
 pip install pandas >nul 2>&1
 EXIT /B 0
 
+:moveCelex
+::Moves celex.py to C:/Program Files/Celex/
+mkdir "C:/Program Files/Celex"
+move /Y "%~dp0..\Celex.py" "C:/Program Files/Celex"
+move /Y "%~dp0..\icon.ico" "C:/Program Files/Celex"
+exit /B 0
+
+:addToPath
+::Add program to path so it can be executed from anywhere
+echo C:\Program Files\Celex > %PATH%
+
 :createShortCut
 ::Calls a powershell to create a shortcut
-powershell.exe -ExecutionPolicy Bypass -Command "%~dp0create_shortcut.ps1 %~dp0../"
+powershell.exe -ExecutionPolicy Bypass -Command "%~dp0create_shortcut.ps1"
+exit /B 0
