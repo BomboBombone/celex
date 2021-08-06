@@ -191,31 +191,6 @@ if __name__ == '__main__':
 
 
     class Celex:
-        class Excel:
-            def __init__(self, excel):
-                self.excel = excel
-
-            def filterByColumn(self, columns: list, values):
-                """
-                Takes an excel data frame string literal representation created by pandas and generates a new representation
-                which uses the filter specified in the parameter columns, which needs to be a list
-                :param values:
-                :param columns:
-                :return [string, list]:
-                """
-                missingColumns = []
-                # Loop to check if every column in the column list exists in the source excel
-                for column in columns:
-                    try:
-                        bufferDF = self.excel[[column]]
-                    # If bufferDF creates an exception the column will be popped
-                    except KeyError:
-                        columns.pop(columns.index(column))
-                        # If -CREATE MISSING- is true, the missing columns will be added later on
-                        if values['-CREATE MISSING-']:
-                            # First it is added to missing columns
-                            missingColumns.append(columns[columns.index(column)])
-                return [self.excel[[columns]], missingColumns]
 
         class SqLite:
             def __init__(self, db):
@@ -317,9 +292,9 @@ if __name__ == '__main__':
             """
             full_filename = []
             for line in self.values['-DEMO LIST-']:
-                full_filename, line = line, 1
-                full_filename = full_filename.split(' ')[1]
-                full_filename = full_filename[1:len(full_filename) - 1]
+                line = line.split(' ')[1]
+                line = line[1:len(full_filename) - 1]
+                full_filename.append(line)
             return full_filename
 
         def readRuleList(self):
@@ -423,6 +398,109 @@ if __name__ == '__main__':
                 return_value.append(list_row)
             return return_value
 
+        def getRowListDF(self, df):
+            """
+            Fetches the row list from a df object
+            """
+            tableToLoad = 'Table1'
+            # Creates an SQL database to hold the information read from the excel in memory
+            bufferExcelSQL = sqlite3.connect(':memory:')
+
+            df.to_sql(name=tableToLoad, con=bufferExcelSQL)
+
+            # Creates a cursor for the SQL table and gets every entry from Table1
+            cur = bufferExcelSQL.cursor()
+            cur.execute('SELECT * FROM Table1')
+            list_row = []
+            return_value = []
+            for row in cur.fetchall():
+                # Converts row tuple to list
+                for _ in row:
+                    list_row.append(_)
+                # Pop the first element which is the row index
+                list_row.pop(0)
+                # Appends the last value to the return_value list, which is a list of rows in the excel file
+                return_value.append(list_row)
+            return return_value
+
+        def checkOutPutFolder(self, folder_path):
+            """
+            Function used to check if there exists a destination folder for the output files, and if not, it creates it
+            """
+            if not os.path.exists(folder_path):
+                os.mkdir(folder_path)
+
+
+    class Excel(Celex):
+        def __init__(self, excel, values):
+            super().__init__(values)
+            self.excel = excel
+
+        def removeRows(self, row_number, df):
+            """
+            Used to remove row_number-1 of rows from the top of the specified df object
+            """
+            # Gets the number of rows
+            df_length = 1
+            df_rows = self.getRowListDF(df)
+            for row in df_rows:
+                df_length = df_rows.index(row) + 1
+            # Gets a list from row_number to df_length
+            listNtoLen = []
+            for i in range(1, df_length + 1):
+                if i >= row_number:
+                    listNtoLen.append(i - 1)
+            #Returns a df containing all rows from row_number to the end
+            return df.filter(items=listNtoLen, axis=0)
+
+        def filterByColumn(self, columns: list):
+            """
+            Takes an excel data frame string literal representation created by pandas and generates a new representation
+            which uses the filter specified in the parameter columns, which needs to be a list.
+            Returns a list containing
+            :param values:
+            :param columns:
+            :return [list, dict]:
+            """
+            missingColumns = {}
+            return_value = []
+            file_columns = []
+
+            # Creates a list of df objects taken from self.excel list which contains the paths
+            excel_list = []
+            for file_path in self.excel:
+                excel_list.append(pd.read_excel(file_path))
+
+            # For every excel file that has been selected
+            index = 0
+            for excel in excel_list:
+                excel = self.removeRows(self.values['-START LINE-'], excel)
+                # Loop to check if every column in the column list exists in the source excel
+                for column in columns:
+                    # For every column in the file make them lowercase
+                    for excel_col in excel.columns:
+                        if not (excel_col.startswith('Unnamed:')):
+                            file_columns.append(excel_col.lower())
+                    # If the column is not in the source file pop it
+                    if not (column.lower() in file_columns):
+                        columns.pop(columns.index(column))
+                        # If the create missing checkbox is active
+                        if self.values['-CREATE MISSING-']:
+                            missingColumns[self.excel[index]] += column + ';'
+                # After popping out every not existing column it appends the filtered excel file
+                return_value.append(excel[columns])
+                index += 1
+            return [return_value, missingColumns]
+
+        def saveToFile(self, file_name: str, df):
+            """
+            Used to save to disk the DF obj into an excel file inside the user_specified folder
+            """
+            input_folder = self.values['-FOLDERNAME IN-']
+            file_path = os.path.join(input_folder, file_name)
+            self.checkOutPutFolder(input_folder)
+            df.to_excel(file_path + '_Modificato', sheet_name='Foglio1', index=False)
+
 
     def find_in_file(string: str, celex):
         """
@@ -485,9 +563,9 @@ if __name__ == '__main__':
             global_theme = 'DarkGrey14'
 
         layout = [[sg.T('Impostazioni di Celex', font='DEFAULT 25')],
-                  [sg.T('Percorso al file', font='_ 16')],
-                  [sg.Combo(sorted(sg.user_settings_get_entry('-folder names-', [])),
-                            default_value=sg.user_settings_get_entry('-demos folder-', get_demo_path()), size=(50, 1),
+                  [sg.T('Percorso di output', font='_ 16', tooltip='Cartella di destinazione dei file')],
+                  [sg.Combo(sorted(sg.user_settings_get_entry('-folder names o-', [])),
+                            default_value=sg.user_settings_get_entry('-output folder-', get_demo_path()), size=(50, 1),
                             key='-FOLDERNAME-'),
                    sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'), sg.B('Pulisci')],
                   [sg.T('Editor', font='_ 16')],
@@ -527,11 +605,11 @@ if __name__ == '__main__':
             if event in ('Cancella', sg.WIN_CLOSED, sg.WINDOW_CLOSE_ATTEMPTED_EVENT):
                 break
             if event == 'Ok':
-                sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME-'])
+                sg.user_settings_set_entry('-output folder-', values['-FOLDERNAME-'])
                 sg.user_settings_set_entry('-editor program-', values['-EDITOR PROGRAM-'])
                 sg.user_settings_set_entry('-theme-', values['-THEME-'])
-                sg.user_settings_set_entry('-folder names-', list(
-                    set(sg.user_settings_get_entry('-folder names-', []) + [values['-FOLDERNAME-'], ])))
+                sg.user_settings_set_entry('-folder names o-', list(
+                    set(sg.user_settings_get_entry('-folder names o-', []) + [values['-FOLDERNAME-'], ])))
                 sg.user_settings_set_entry('-explorer program-', values['-EXPLORER PROGRAM-'])
                 sg.user_settings_set_entry('-advanced mode-', values['-ADVANCED MODE-'])
                 sg.user_settings_set_entry('-dclick runs-', values['-DCLICK RUNS-'])
@@ -544,22 +622,22 @@ if __name__ == '__main__':
                 sg.user_settings_set_entry('-last filename-', '')
                 window_settings['-FOLDERNAME-'].update(values=[], value='')
 
-            window_settings.close()
-            return settings_changed
+        window_settings.close()
+        return settings_changed
 
 
     ML_KEY = '-ML-'  # Multline's key
 
 
-    def listOneToN(n):
+    def listZeroToN(n):
         """
         Just a list of numbers from 1 to n
         """
         num = 0
         return_value = []
-        for int in range(1, n):
-            num = num + 1
+        for int in range(1, n + 1):
             return_value.append(num)
+            num = num + 1
         return return_value
 
 
@@ -630,49 +708,52 @@ if __name__ == '__main__':
                                         'C40 = PC40T67\n'))],
             [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
-             sg.Combo(listOneToN(100), default_value=1, key='-START LINE-', readonly=True)],
-            [sg.Button('Guida'), sg.B('Impostazioni'), sg.Button('Esci')],
-            [sg.T('Progetto sviluppato con amore', font='Default 8', pad=(0, 0))],
-            [sg.T('Per quella grandissima troia di', font='Default 8', pad=(0, 0))],
-            [sg.T('Alice', font='Default 8', pad=(0, 0))],
+             sg.Combo(listZeroToN(101), default_value=0, key='-START LINE-', readonly=True)],
         ]
 
         options_at_bottom = sg.pin(
             sg.Column([[sg.CB('Mostra solo il primo risultato nel file', default=True, enable_events=True,
-                              k='-FIRST MATCH ONLY-'),
+                              k='-FIRST MATCH ONLY-', visible=False),
                         sg.CB('Ignora maiuscolo', default=True, enable_events=True,
                               k='-IGNORE CASE-'),
                         sg.CB('Attendi completamento', default=False, enable_events=True,
                               k='-WAIT-', visible=False),
                         sg.CB('Crea colonne mancanti', tooltip='Decidi se creare le colonne mancanti '
                                                                'all\'interno del file di origine', default=False,
-                              k='-CREATE MISSING-', enable_events=True)
+                              k='-CREATE MISSING-', enable_events=True),
                         ]],
                       pad=(0, 0), k='-OPTIONS BOTTOM-', expand_x=True, expand_y=False),
             expand_x=True, expand_y=False)
 
+        extra_options = sg.pin(
+            sg.Column([[sg.Button('Guida'), sg.B('Impostazioni'), sg.Button('Esci')]],
+                      element_justification='right', expand_x=True, expand_y=False)
+            , expand_x=True, expand_y=False
+        )
+
         choose_folder_at_top = sg.pin(
-            sg.Column([[sg.T('Clicca Impostazioni per cambiare la cartella selezionata'),
+            sg.Column([[sg.T('Clicca Impostazioni per cambiare la cartella di destinazione'),
                         sg.Combo(sorted(sg.user_settings_get_entry('-folder names-', [])),
                                  default_value=sg.user_settings_get_entry('-demos folder-', ''),
-                                 size=(50, 30), key='-FOLDERNAME-', enable_events=True, readonly=True),
+                                 size=(50, 30), key='-FOLDERNAME IN-', enable_events=True, readonly=False),
                         ]], pad=(0, 0),
                       k='-FOLDER CHOOSE-'))
         # ----- Full layout -----
 
         layout = [[sg.Text('Celex', font=('Calibri', 30), text_color='#C4DFE6', pad=(10, 0))],
-                  [choose_folder_at_top, sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'),
-                   sg.B('Pulisci', key='-CLEAN FOLDERNAME-')],
+                  [choose_folder_at_top,
+                   sg.FolderBrowse('Esplora file', target='-FOLDERNAME IN-', enable_events=True, key='-FN BROWSE IN-'),
+                   sg.B('Pulisci', key='-CLEAN FOLDERNAME IN-'), sg.Text('©Bombo')],
                   # [sg.Column([[left_col],[ lef_col_find_re]], element_justification='l',  expand_x=True, expand_y=True), sg.Column(right_col, element_justification='c', expand_x=True, expand_y=True)],
                   [sg.Pane([sg.Column([[left_col], [lef_col_find_re]], element_justification='l', expand_x=True,
                                       expand_y=True),
                             sg.Column(right_col, element_justification='l', expand_x=True, expand_y=True, )],
                            orientation='h', relief=sg.RELIEF_SUNKEN, k='-PANE-', show_handle=False)],
-                  [options_at_bottom], ]
+                  [options_at_bottom], [extra_options]]
 
         # --------------------------------- Create Window ---------------------------------
         window = sg.Window('Celex', layout, finalize=True, icon=icon_path, resizable=True,
-                           use_default_focus=False, size=(1000, 800))
+                           use_default_focus=False, size=(965, 650))
         window.set_min_size(window.size)
         window.bring_to_front()
         window['-DEMO LIST-'].expand(True, True, True)
@@ -745,7 +826,10 @@ if __name__ == '__main__':
                                 execute_command_subprocess(editor_program, full_filename)
 
             elif event == 'Avvia (Tutti i file)':
-                celex_excel = Celex.Excel(celex.getDemoListEntry())
+                celex_excel = Excel(celex.getDemoListEntry(), values)
+                excel_list = celex_excel.filterByColumn(['Quantità'])[0]
+                for excel in excel_list:
+                    print(excel)
 
                 celex.inputBufferList = celex.ignoreComments()
 
@@ -846,17 +930,19 @@ if __name__ == '__main__':
                     file_list_dict = get_file_list_dict()
                     file_list = get_file_list()
                     window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
-            elif event == '-CLEAN FOLDERNAME-':
+            elif event == '-CLEAN FOLDERNAME IN-':
                 file_list = get_file_list()
-                window['-FOLDERNAME-'].update('')
+                window['-FOLDERNAME IN-'].update('')
                 window['-FILTER-'].update('')
                 window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
                 window['-FIND-'].update('')
                 window['-DEMO LIST-'].update(file_list)
                 window['-FIND NUMBER-'].update('')
                 window['-FIND RE-'].update('')
-            elif event == '-FOLDERNAME-':
-                sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME-'])
+            elif event == '-FOLDERNAME IN-':
+                sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME IN-'])
+                sg.user_settings_set_entry('-folder names-', list(
+                    set(sg.user_settings_get_entry('-folder names-', []) + [values['-FOLDERNAME IN-'], ])))
                 file_list_dict = get_file_list_dict()
                 file_list = get_file_list()
                 window['-DEMO LIST-'].update(values=file_list)
@@ -1026,4 +1112,18 @@ if __name__ == '__main__':
                          background_color='red', text_color='white')
         except Exception as e:
             print(f'** Warning Exception parsing version: {version} **  ', f'{e}')
+
+        # Set addditional user settings
+        sg.user_settings_set_entry('-output folder-', [])
+        sg.user_settings_set_entry('-folder names o-', [])
+
+        # Set the default output to Desktop/Celex
+        default_output_folder = os.path.join(os.environ["HOMEPATH"], "Desktop")
+        default_output_folder = 'C:\\' + default_output_folder
+        print(default_output_folder)
+        default_output_folder = os.path.join(default_output_folder, "Celex")
+
+        if not os.path.exists(default_output_folder):
+            os.mkdir(default_output_folder)
+
         main()
