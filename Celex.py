@@ -65,7 +65,7 @@ if __name__ == '__main__':
     def get_file_list():
         """
         Returns list of filenames of files to display
-        No path is shown, only the short filename
+        Only the path to the file
         :return: List of filenames
         :rtype: List[str]
         """
@@ -74,6 +74,17 @@ if __name__ == '__main__':
             return_value.append(_ + ' (' + get_file_list_dict()[_] + ')')
         return return_value
 
+    def get_path_list():
+        """
+        Returns a list of the paths of the files on the left column in main window
+        """
+        entry_list = get_file_list()
+        return_value = []
+        for entry in entry_list:
+            return_value_buff = entry.split(' ')[1]
+            return_value_buff = return_value_buff[1:len(return_value_buff) - 1]
+            return_value.append(return_value_buff)
+        return return_value
 
     def get_demo_path():
         """
@@ -321,9 +332,9 @@ if __name__ == '__main__':
             for word in col_List:
                 # Check for useless characters in the beginning or end of the string
                 if word.startswith(' ') or word.startswith('\n') or word.startswith('\t'):
-                    word = word[1, len(word)]
+                    word = word[1:len(word)]
                 if word.endswith(' ') or word.endswith('\n') or word.endswith('\t'):
-                    word = word[1, len(word) - 1]
+                    word = word[1:len(word) - 1]
                 return_value.append(word)
             return return_value
 
@@ -440,11 +451,7 @@ if __name__ == '__main__':
             """
             Used to remove row_number-1 of rows from the top of the specified df object
             """
-            # Gets the number of rows
-            df_length = 1
-            df_rows = self.getRowListDF(df)
-            for row in df_rows:
-                df_length = df_rows.index(row) + 1
+            df_length = self.getNofRows(df)
             # Gets a list from row_number to df_length
             listNtoLen = []
             for i in range(1, df_length + 1):
@@ -455,14 +462,16 @@ if __name__ == '__main__':
 
         def filterByColumn(self, columns: list):
             """
-            Takes an excel data frame string literal representation created by pandas and generates a new representation
+            Takes an excel data frame created by pandas and generates a new representation
             which uses the filter specified in the parameter columns, which needs to be a list.
-            Returns a list containing
+            Returns a list containing a list of df objs and a missing cols dict
             :param values:
             :param columns:
             :return [list, dict]:
             """
             missingColumns = {}
+            for entry in get_file_list_dict().values():
+                missingColumns[entry] = ''
             return_value = []
             file_columns = []
 
@@ -474,21 +483,27 @@ if __name__ == '__main__':
             # For every excel file that has been selected
             index = 0
             for excel in excel_list:
-                excel = self.removeRows(self.values['-START LINE-'], excel)
+                if self.values['-START LINE-']:
+                    excel = self.removeRows(self.values['-START LINE-'], excel)
+                else:
+                    excel = self.removeRows(1, excel)
+                # For every column in the file make them lowercase and remove all empty column cells
+                for excel_col in excel.columns:
+                    if not (excel_col.startswith('Unnamed:')):
+                        file_columns.append(excel_col.lower())
                 # Loop to check if every column in the column list exists in the source excel
+                columns_buff = []
                 for column in columns:
-                    # For every column in the file make them lowercase
-                    for excel_col in excel.columns:
-                        if not (excel_col.startswith('Unnamed:')):
-                            file_columns.append(excel_col.lower())
                     # If the column is not in the source file pop it
-                    if not (column.lower() in file_columns):
-                        columns.pop(columns.index(column))
+                    if not (column in file_columns):
                         # If the create missing checkbox is active
                         if self.values['-CREATE MISSING-']:
                             missingColumns[self.excel[index]] += column + ';'
+                    else:
+                        columns_buff.append(column)
                 # After popping out every not existing column it appends the filtered excel file
-                return_value.append(excel[columns])
+                if columns_buff:
+                    return_value.append(excel[columns_buff])
                 index += 1
             return [return_value, missingColumns]
 
@@ -499,7 +514,57 @@ if __name__ == '__main__':
             input_folder = self.values['-FOLDERNAME IN-']
             file_path = os.path.join(input_folder, file_name)
             self.checkOutPutFolder(input_folder)
-            df.to_excel(file_path + '_Modificato', sheet_name='Foglio1', index=False)
+
+            for file_index in list1ToN(20):
+                if os.path.exists(file_path + '_Modificato' + '(' + str(file_index) + ')'):
+                    continue
+                else:
+                    df.to_excel(file_path + '_Modificato' + '(' + str(file_index) + ')', sheet_name='Foglio1', index=False)
+                    break
+
+        def getStartLine(self, excel):
+            """
+            Used to get the first useful line of the file, therefore excluding all the headers
+            """
+            pass
+
+        def createColumns(self, columns: list, to_insert: str, df):
+            """
+            Used to create the specified columns to the corresponding df object.
+            Can also specify a to_insert list which will be the values to assign to the missing columns
+            Returns the df with the created columns
+            """
+            # Setup of the list
+            to_insert_list = []
+            for entry in to_insert.split(';'):
+                # Remove white spaces from the beginning and end of the string
+                if entry.startswith(' '):
+                    entry = entry[1:len(entry)]
+                if entry.endswith(' '):
+                    entry = entry[0:len(entry) - 1]
+                to_insert_list.append(entry)
+            # Initial setup of the dictionary
+            df_buff = {}
+            for column in columns:
+                df_buff[column] = []
+            # Append the corresponding element to each column
+            i = 0
+            for column in columns:
+                # Loop for the number of rows in the df object
+                for index in list1ToN(self.getNofRows(df)):
+                    df_buff[column].append(to_insert_list[i])
+                i += 1
+            return pd.DataFrame(df_buff)
+
+        def getNofRows(self, df):
+            """
+            Used to get the number of rows of a specified df obj
+            """
+            df_length = 1
+            df_rows = self.getRowListDF(df)
+            for row in df_rows:
+                df_length = df_rows.index(row) + 1
+            return df_length
 
 
     def find_in_file(string: str, celex):
@@ -629,7 +694,7 @@ if __name__ == '__main__':
     ML_KEY = '-ML-'  # Multline's key
 
 
-    def listZeroToN(n):
+    def list1ToN(n):
         """
         Just a list of numbers from 1 to n
         """
@@ -708,7 +773,7 @@ if __name__ == '__main__':
                                         'C40 = PC40T67\n'))],
             [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
-             sg.Combo(listZeroToN(101), default_value=0, key='-START LINE-', readonly=True)],
+             sg.Combo(list1ToN(100), default_value=0, key='-START LINE-', readonly=True)],
         ]
 
         options_at_bottom = sg.pin(
@@ -827,15 +892,19 @@ if __name__ == '__main__':
 
             elif event == 'Avvia (Tutti i file)':
                 celex_excel = Excel(celex.getDemoListEntry(), values)
-                excel_list = celex_excel.filterByColumn(['Quantità'])[0]
-                for excel in excel_list:
-                    print(excel)
 
                 celex.inputBufferList = celex.ignoreComments()
 
                 # Get all the rules and column filters
                 rule_list_dict = celex.getRuleListDict()
                 columns_filter = celex.readColumnList()
+                excel_list_filtered, missing_columns = celex_excel.filterByColumn(columns_filter)
+
+                # Creates the missing columns in each df object in excel_list_filtered
+                excel_list_final = []
+                for excel in excel_list_filtered:
+                    index = excel_list_filtered.index(excel)
+                    excel_list_final.append(celex_excel.createColumns(missing_columns[get_path_list()[index]], values['-FILL INPUT-'], excel))
 
                 list_row = celex.getRowListSQL(celex.getDemoListEntry()[0])
                 for row in list_row:
@@ -859,12 +928,8 @@ if __name__ == '__main__':
                                 if isLastOneUsed:
                                     continue
                                 for filter in columns_filter:
-                                    splitList = \
-                                        celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[
-                                            0]
-                                    isLastOneUsed = \
-                                        celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)[
-                                            1]
+                                    splitList, isLastOneUsed = celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)
+
                 print(splitList)
 
 
