@@ -74,6 +74,7 @@ if __name__ == '__main__':
             return_value.append(_ + ' (' + get_file_list_dict()[_] + ')')
         return return_value
 
+
     def get_path_list():
         """
         Returns a list of the paths of the files on the left column in main window
@@ -85,6 +86,7 @@ if __name__ == '__main__':
             return_value_buff = return_value_buff[1:len(return_value_buff) - 1]
             return_value.append(return_value_buff)
         return return_value
+
 
     def get_demo_path():
         """
@@ -457,7 +459,7 @@ if __name__ == '__main__':
             for i in range(1, df_length + 1):
                 if i >= row_number:
                     listNtoLen.append(i - 1)
-            #Returns a df containing all rows from row_number to the end
+            # Returns a df containing all rows from row_number to the end
             return df.filter(items=listNtoLen, axis=0)
 
         def filterByColumn(self, columns: list):
@@ -519,7 +521,8 @@ if __name__ == '__main__':
                 if os.path.exists(file_path + '_Modificato' + '(' + str(file_index) + ')'):
                     continue
                 else:
-                    df.to_excel(file_path + '_Modificato' + '(' + str(file_index) + ')', sheet_name='Foglio1', index=False)
+                    df.to_excel(file_path + '_Modificato' + '(' + str(file_index) + ')', sheet_name='Foglio1',
+                                index=False)
                     break
 
         def getStartLine(self, excel):
@@ -576,6 +579,7 @@ if __name__ == '__main__':
                 return_value.append(excel.join(excel_list_source[index]))
             return return_value
 
+
     def find_in_file(string: str, celex):
         """
         Search through the demo files for a string.
@@ -602,6 +606,91 @@ if __name__ == '__main__':
                         return_value.append(file_path.split('/')[len(file_path.split('/')) - 1])
         return return_value
 
+    def insertEntryRow():
+        """
+        Changes settings to fit the new layout
+        """
+        # Gets the old settings
+        cb_value_list = sg.user_settings_get_entry('-cb value-')
+        cv_input_list = sg.user_settings_get_entry('-cv input-')
+        cv_type_list = sg.user_settings_get_entry('-cv type-')
+        # Sets the new settings
+        cb_value_list.append(True)
+        cv_input_list.append('')
+        cv_type_list.append('Stringa')
+        sg.user_settings_set_entry('-cb value-', cb_value_list)
+        sg.user_settings_set_entry('-cv input-', cv_input_list)
+        sg.user_settings_set_entry('-cv type-', cv_type_list)
+
+    def createEntryRow(index, layout):
+        """
+        Used to create an entry in the specified layout
+        :returns layout:
+        """
+        entry_row = [sg.CB('Attivo', text_color='red', key='-CB ' + str(index) + '-', default=True),
+                     sg.Input('Valore', key='-CV INPUT ' + str(index) + '-', tooltip='Valore di controllo'),
+                     sg.Combo(['Stringa', 'Numero'], default_value='Stringa', key='-CV TYPE ' + str(index) + '-',
+                              tooltip='Stringa = Lettere, '
+                                      'numeri e caratteri '
+                                      'vari\nNumero = solo '
+                                      'numeri')]
+        layout.append(entry_row)
+        return layout
+
+    def removeEntry():
+        """
+        Changes settings to fit new layout
+        """
+        # Gets the old settings
+        cb_value_list = sg.user_settings_get_entry('-cb value-')
+        cv_input_list = sg.user_settings_get_entry('-cv input-')
+        cv_type_list = sg.user_settings_get_entry('-cv type-')
+        # Sets the new settings
+        if cb_value_list:
+            cb_value_list.pop(len(cb_value_list) - 1)
+        if cv_input_list:
+            cv_input_list.pop(len(cv_input_list) - 1)
+        if cv_type_list:
+            cv_type_list.pop(len(cv_type_list) - 1)
+        sg.user_settings_set_entry('-cb value-', cb_value_list)
+        sg.user_settings_set_entry('-cv input-', cv_input_list)
+        sg.user_settings_set_entry('-cv type-', cv_type_list)
+
+    def get_num_of_entries():
+        try:
+            number_of_entries = len(sg.user_settings_get_entry('-cb value-'))
+        except TypeError:
+            number_of_entries = 0
+        return number_of_entries
+
+    def createBaseLayout():
+        layout = [[sg.Text('Valori di controllo', font='DEFAULT 25')],
+                  [sg.Text('Inserisci sotto i valori', font='_ 16')],
+                  [sg.Button('Aggiungi valore', enable_events=True, key='-ADD ENTRY-'),
+                   sg.Button('Rimuovi valore', enable_events=True, key='-REMOVE ENTRY-')]]
+        entries_num = get_num_of_entries()
+        for i in list1ToN(entries_num):
+            layout = createEntryRow(i, layout)
+        return layout
+
+    def make_control_window(create_entry: bool, del_entry: bool):
+        """
+        Used to create a window element
+        """
+        if create_entry:
+            insertEntryRow()
+        elif del_entry:
+            removeEntry()
+
+        layout = createBaseLayout()
+
+        layout_final = [layout,
+                        [sg.Column([[sg.Button('Ok'), sg.Button('Cancella')]], justification='right')]
+                        ]
+
+        window_control = sg.Window('Valori di controllo', layout_final, icon=icon_path)
+
+        return window_control
 
     def control_variables_window():
         """
@@ -609,7 +698,27 @@ if __name__ == '__main__':
         'value keyword' or 'keyword value' strings
         :return True if variables have been changed:
         """
+        window_control = make_control_window(False, False)
+        while True:
+            event, values = window_control.read()
 
+            if event in ('Cancella', sg.WIN_CLOSED, sg.WINDOW_CLOSE_ATTEMPTED_EVENT):
+                break
+            if event == '-ADD ENTRY-':
+                window_control.close()
+                window_control = make_control_window(True, False)
+                continue
+            if event == '-REMOVE ENTRY-':
+                window_control.close()
+                window_control = make_control_window(False, True)
+                continue
+            if event == 'Ok':
+                window_control.close()
+                return True
+        window_control.close()
+        return False
+
+        window_control.close()
 
     def settings_window():
         """
@@ -619,10 +728,6 @@ if __name__ == '__main__':
         :return: True if settings were changed
         :rtype: (bool)
         """
-        layout = [[sg.Text('Valori di controllo', font='DEFAULT 25')],
-                  [sg.Text('Inserisci sotto i valori', font='_ 16')],
-                  [sg.CB('Attivo', text_color='red'), sg.Input('Valore'), sg.Combo([], )]]
-
         try:
             global_editor = sg.pysimplegui_user_settings.get('-editor program-')
         except:
@@ -671,10 +776,6 @@ if __name__ == '__main__':
         while True:
 
             event, values = window_settings.read()
-            # Used to close this window if main is closed
-            if Closed.isMainClosed:
-                window_settings.close()
-                return settings_changed
 
             if event in ('Cancella', sg.WIN_CLOSED, sg.WINDOW_CLOSE_ATTEMPTED_EVENT):
                 break
@@ -782,7 +883,8 @@ if __name__ == '__main__':
                                         'C40 = PC40T67\n'))],
             [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
-             sg.Combo(list1ToN(100), default_value=0, key='-START LINE-', readonly=True)],
+             sg.Combo(list1ToN(100), default_value=0, key='-START LINE-', readonly=True),
+             sg.Button('Valori di controllo')],
         ]
 
         options_at_bottom = sg.pin(
@@ -878,6 +980,9 @@ if __name__ == '__main__':
             if event == 'Guida':
                 webbrowser.open('https://github.com/BomboBombone/celex', new=1)
 
+            if event == 'Valori di controllo':
+                control_variables_window()
+
             if event == '-DEMO LIST-':  # if double clicked (used the bind return key parm)
                 if sg.user_settings_get_entry('-dclick runs-'):
                     event = 'Avvia (Tutti i file)'
@@ -913,7 +1018,9 @@ if __name__ == '__main__':
                 excel_list_final = []
                 for excel in excel_list_filtered:
                     index = excel_list_filtered.index(excel)
-                    excel_list_final.append(celex_excel.createColumns([missing_columns[get_path_list()[index]]], values['-FILL INPUT-'], excel))
+                    excel_list_final.append(
+                        celex_excel.createColumns([missing_columns[get_path_list()[index]]], values['-FILL INPUT-'],
+                                                  excel))
 
                 excel_list = celex_excel.joinDF(excel_list_filtered, excel_list_final)
 
@@ -939,7 +1046,8 @@ if __name__ == '__main__':
                                 if isLastOneUsed:
                                     continue
                                 for filter in columns_filter:
-                                    splitList, isLastOneUsed = celex.checkKeyWord(index, entry, splitList, word, keyWord, int, isLastOneUsed)
+                                    splitList, isLastOneUsed = celex.checkKeyWord(index, entry, splitList, word,
+                                                                                  keyWord, int, isLastOneUsed)
 
                 print(splitList)
 
@@ -1192,11 +1300,13 @@ if __name__ == '__main__':
         # Set addditional user settings
         sg.user_settings_set_entry('-output folder-', [])
         sg.user_settings_set_entry('-folder names o-', [])
+        sg.user_settings_set_entry('-cb value-', [])
+        sg.user_settings_set_entry('-cv input-', [])
+        sg.user_settings_set_entry('-cv type-', [])
 
         # Set the default output to Desktop/Celex
         default_output_folder = os.path.join(os.environ["HOMEPATH"], "Desktop")
         default_output_folder = 'C:\\' + default_output_folder
-        print(default_output_folder)
         default_output_folder = os.path.join(default_output_folder, "Celex")
 
         if not os.path.exists(default_output_folder):
