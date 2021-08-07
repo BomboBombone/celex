@@ -545,15 +545,18 @@ if __name__ == '__main__':
                 to_insert_list.append(entry)
             # Initial setup of the dictionary
             df_buff = {}
+            columns_buff = []
             for column in columns:
-                df_buff[column] = []
+                column = column[0:len(column) - 1]
+                columns_buff.append(column)
+            columns = columns_buff
             # Append the corresponding element to each column
-            i = 0
             for column in columns:
+                i = columns.index(column)
+                df_buff[column] = []
                 # Loop for the number of rows in the df object
                 for index in list1ToN(self.getNofRows(df)):
                     df_buff[column].append(to_insert_list[i])
-                i += 1
             return pd.DataFrame(df_buff)
 
         def getNofRows(self, df):
@@ -566,6 +569,12 @@ if __name__ == '__main__':
                 df_length = df_rows.index(row) + 1
             return df_length
 
+        def joinDF(self, excel_list_dest, excel_list_source):
+            return_value = []
+            for excel in excel_list_dest:
+                index = excel_list_dest.index(excel)
+                return_value.append(excel.join(excel_list_source[index]))
+            return return_value
 
     def find_in_file(string: str, celex):
         """
@@ -904,7 +913,9 @@ if __name__ == '__main__':
                 excel_list_final = []
                 for excel in excel_list_filtered:
                     index = excel_list_filtered.index(excel)
-                    excel_list_final.append(celex_excel.createColumns(missing_columns[get_path_list()[index]], values['-FILL INPUT-'], excel))
+                    excel_list_final.append(celex_excel.createColumns([missing_columns[get_path_list()[index]]], values['-FILL INPUT-'], excel))
+
+                excel_list = celex_excel.joinDF(excel_list_filtered, excel_list_final)
 
                 list_row = celex.getRowListSQL(celex.getDemoListEntry()[0])
                 for row in list_row:
