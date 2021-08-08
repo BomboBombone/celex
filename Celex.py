@@ -213,11 +213,11 @@ if __name__ == '__main__':
             self.values = values
             self.inputBufferList = self.createInputBufferList()
 
-        def checkKeyWord(self, index, entry, splitList: list, word, keyWord, typeToCheck, isLastOneUsed):
+        def checkKeyWord(self, index, entry, word, keyWord, typeToCheck, isLastOneUsed):
             """
             Used to check if the current word being checked contains the keyword, and if it is so
             it checks the last and next word in the current entry of the splitList (List of strings
-            that need to be split. It also sets the isLastOneUsed bool, which is used to determine if the next word
+            that need to be split). It also sets the isLastOneUsed bool, which is used to determine if the next word
             has already been checked in the last iteration in the loop
             :param index:
             :param entry:
@@ -226,27 +226,38 @@ if __name__ == '__main__':
             :param keyWord:
             :param typeToCheck:
             :param isLastOneUsed:
-            :return [splitList, isLastOneUsed]:
+            :return [string, isLastOneUsed]:
             """
+            return_value = ''
+            # Convert type
+            if typeToCheck == 'Stringa':
+                typeToCheck = str
+            else:
+                typeToCheck = int
             # Check if the keyword is in the string to check
-            return_value = splitList
             if not (keyWord in word):
                 return [[], False]
             # If it is the first element check only the next one
             if index:
-                # Check last element first, then next element
-                # If successful assign the value to split list and pop both values
-                if isinstance(entry.split(' ')[index - 1], typeToCheck):
-                    splitList.append(entry.split(' ')[index - 1] + ' ' + entry.split(' ')[index])
-                    isLastOneUsed = False
-                elif isinstance(entry.split(' ')[index + 1], typeToCheck):
-                    splitList.append(entry.split(' ')[index + 1] + ' ' + entry.split(' ')[index])
-                    isLastOneUsed = True
+                try:
+                    # Check last element first, then next element
+                    # If successful assign the value to split list and pop both values
+                    if isinstance(entry.split(' ')[index - 1], typeToCheck):
+                        return_value = (entry.split(' ')[index - 1] + ' ' + entry.split(' ')[index])
+                        isLastOneUsed = False
+                    elif isinstance(entry.split(' ')[index + 1], typeToCheck):
+                        return_value = (entry.split(' ')[index + 1] + ' ' + entry.split(' ')[index])
+                        isLastOneUsed = True
+                except IndexError:
+                    pass
             else:
-                if isinstance(entry.split(' ')[index + 1], typeToCheck):
-                    splitList.append(entry.split(' ')[index + 1] + ' ' + entry.split(' ')[index])
-                    isLastOneUsed = True
-            return [splitList, isLastOneUsed]
+                try:
+                    if isinstance(entry.split(' ')[index + 1], typeToCheck):
+                        return_value = (entry.split(' ')[index + 1] + ' ' + entry.split(' ')[index])
+                        isLastOneUsed = True
+                except IndexError:
+                    pass
+            return [return_value, isLastOneUsed]
 
         def createInputBufferList(self):
             """
@@ -290,13 +301,7 @@ if __name__ == '__main__':
             Gets the keywords to look for in multi-word cells
             :return keyword list:
             """
-            return_value = []
-            for line in self.values[ML_KEY]:
-                list_words_line = line.split(' ')
-                for word in list_words_line:
-                    if word.startswith('$'):
-                        return_value.append(word[1, len(word)])
-            return return_value
+            return sg.user_settings_get_entry('-cv input-')
 
         def getDemoListEntry(self):
             """
@@ -443,6 +448,19 @@ if __name__ == '__main__':
             if not os.path.exists(folder_path):
                 os.mkdir(folder_path)
 
+        def getMissingColumns(self, excel):
+            return_value = []
+            for column in str(sg.user_settings_get_entry('-col filter-')).split(';'):
+                try:
+                    buffDF = excel[[column]]
+                except KeyError:
+                    if column.startswith(' '):
+                        column = column[1:len(column)]
+                    if column.endswith(' '):
+                        column = column[0:len(column) - 1]
+                    return_value.append(column)
+            return return_value
+
 
     class Excel(Celex):
         def __init__(self, excel, values):
@@ -462,6 +480,15 @@ if __name__ == '__main__':
             # Returns a df containing all rows from row_number to the end
             return df.filter(items=listNtoLen, axis=0)
 
+        def getExcelList(self):
+            """
+            Used to get list of df objs
+            """
+            excel_list = []
+            for file_path in self.excel:
+                excel_list.append(pd.read_excel(file_path))
+            return excel_list
+
         def filterByColumn(self, columns: list):
             """
             Takes an excel data frame created by pandas and generates a new representation
@@ -473,7 +500,7 @@ if __name__ == '__main__':
             """
             missingColumns = {}
             for entry in get_file_list_dict().values():
-                missingColumns[entry] = ''
+                missingColumns[entry] = []
             return_value = []
             file_columns = []
 
@@ -500,7 +527,7 @@ if __name__ == '__main__':
                     if not (column in file_columns):
                         # If the create missing checkbox is active
                         if self.values['-CREATE MISSING-']:
-                            missingColumns[self.excel[index]] += column + ';'
+                            missingColumns[self.excel[index]].append(column)
                     else:
                         columns_buff.append(column)
                 # After popping out every not existing column it appends the filtered excel file
@@ -573,10 +600,14 @@ if __name__ == '__main__':
             return df_length
 
         def joinDF(self, excel_list_dest, excel_list_source):
-            return_value = []
-            for excel in excel_list_dest:
-                index = excel_list_dest.index(excel)
-                return_value.append(excel.join(excel_list_source[index]))
+            """
+            Used to join two df obj lists
+            """
+            return_value = excel_list_dest
+            if excel_list_dest and excel_list_source:
+                for excel in excel_list_dest:
+                    index = excel_list_dest.index(excel)
+                    return_value.append(excel.join(excel_list_source[index]))
             return return_value
 
 
@@ -615,13 +646,16 @@ if __name__ == '__main__':
         cb_value_list = sg.user_settings_get_entry('-cb value-')
         cv_input_list = sg.user_settings_get_entry('-cv input-')
         cv_type_list = sg.user_settings_get_entry('-cv type-')
+        cv_col_list = sg.user_settings_get_entry('-cv col entry-')
         # Sets the new settings
         cb_value_list.append(True)
         cv_input_list.append('')
         cv_type_list.append('Stringa')
+        cv_col_list.append('')
         sg.user_settings_set_entry('-cb value-', cb_value_list)
         sg.user_settings_set_entry('-cv input-', cv_input_list)
         sg.user_settings_set_entry('-cv type-', cv_type_list)
+        sg.user_settings_set_entry('-cv col entry-', cv_col_list)
 
 
     def createEntryRow(index, layout):
@@ -629,6 +663,12 @@ if __name__ == '__main__':
         Used to create an entry in the specified layout
         :returns layout:
         """
+        if sg.user_settings_get_entry('-cv col combo-'):
+            sg.user_settings_get_entry('-cv col entry-', sg.user_settings_get_entry('-cv col combo-')[0])
+        else:
+            sg.user_settings_set_entry('-cv col combo-', [''])
+            sg.user_settings_set_entry('-cv col entry-', sg.user_settings_get_entry('-cv col combo-'))
+
         entry_row = [sg.CB('Attivo', text_color='red', key='-CB ' + str(index) + '-',
                            default=sg.user_settings_get_entry('-cb value-')[index]),
                      sg.Input(sg.user_settings_get_entry('-cv input-')[index],
@@ -639,7 +679,12 @@ if __name__ == '__main__':
                               tooltip='Stringa = Lettere, '
                                       'numeri e caratteri '
                                       'vari\nNumero = solo '
-                                      'numeri')]
+                                      'numeri'),
+                     sg.Combo(sg.user_settings_get_entry('-cv col combo-'),
+                              default_value=sg.user_settings_get_entry('-cv col entry-')[index],
+                              key='-CV COL ' + str(index) + '-',
+                              tooltip='Specifica la colonna nella quale devono essere assegnati questi valori',
+                              readonly=True)]
         layout.append(entry_row)
         return layout
 
@@ -652,6 +697,7 @@ if __name__ == '__main__':
         cb_value_list = sg.user_settings_get_entry('-cb value-')
         cv_input_list = sg.user_settings_get_entry('-cv input-')
         cv_type_list = sg.user_settings_get_entry('-cv type-')
+        cv_col_list = sg.user_settings_get_entry('-cv col entry-')
         # Sets the new settings
         if len(cb_value_list) > 1:
             cb_value_list.pop(len(cb_value_list) - 1)
@@ -659,9 +705,12 @@ if __name__ == '__main__':
             cv_input_list.pop(len(cv_input_list) - 1)
         if len(cv_type_list) > 1:
             cv_type_list.pop(len(cv_type_list) - 1)
+        if len(cv_col_list) > 1:
+            cv_col_list.pop(len(cv_col_list) - 1)
         sg.user_settings_set_entry('-cb value-', cb_value_list)
         sg.user_settings_set_entry('-cv input-', cv_input_list)
         sg.user_settings_set_entry('-cv type-', cv_type_list)
+        sg.user_settings_set_entry('-cv col entry-', cv_col_list)
 
 
     def get_num_of_entries():
@@ -711,6 +760,7 @@ if __name__ == '__main__':
 
         return window_control
 
+
     def saveControlSettings(values):
         """
         Used to save the current settings for the control window
@@ -718,15 +768,19 @@ if __name__ == '__main__':
         cb_value_list = []
         cv_input_list = []
         cv_type_list = []
+        cv_col_list = []
         # Append all the values to buffer lists
         for i in list1ToN(get_num_of_entries()):
             cb_value_list.append(values['-CB ' + str(i) + '-'])
             cv_input_list.append(values['-CV INPUT ' + str(i) + '-'])
             cv_type_list.append(values['-CV TYPE ' + str(i) + '-'])
+            cv_col_list.append(values['-CV COL ' + str(i) + '-'])
         # Set the values to settings
         sg.user_settings_set_entry('-cb value-', cb_value_list)
         sg.user_settings_set_entry('-cv input-', cv_input_list)
         sg.user_settings_set_entry('-cv type-', cv_type_list)
+        sg.user_settings_set_entry('-cv col entry-', cv_col_list)
+
 
     def control_variables_window():
         """
@@ -734,10 +788,12 @@ if __name__ == '__main__':
         'value keyword' or 'keyword value' strings
         :return True if variables have been changed:
         """
+        # Add one entry as default if you do not already have one
         if get_num_of_entries():
             window_control = make_control_window(False, False)
         else:
             window_control = make_control_window(True, False)
+
         while True:
             event, values = window_control.read()
 
@@ -758,8 +814,6 @@ if __name__ == '__main__':
                 return True
         window_control.close()
         return False
-
-        window_control.close()
 
 
     def settings_window():
@@ -902,14 +956,15 @@ if __name__ == '__main__':
         column_filter_in = sg.pin(sg.Column([
             [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left',
                      tooltip='Colonne di interesse da usare come filtro'),
-             sg.Input('Es: Commessa; Pz; Misure Finite; Misure', key='-COLUMN FILTER-')]
+             sg.Input(sg.user_settings_get_entry('-col filter-'), key='-COLUMN FILTER-')]
         ])
         )
 
         column_filter_out = sg.pin(sg.Column([
-            [sg.Input('Es: 769KF3; Celex', tooltip='Lascia vuoto per creare colonne vuote.\n'
-                                                   'Se più colonne nuove vengono create'
-                                                   'ogni colonna sarà riempita con un elemento nella lista',
+            [sg.Input(sg.user_settings_get_entry('-fill input-'), tooltip='Lascia vuoto per creare colonne vuote.\n'
+                                                                          'Se più colonne nuove vengono create'
+                                                                          'ogni colonna sarà riempita con un elemento '
+                                                                          'nella lista',
                       key='-FILL INPUT-', visible=False)]], justification='l')
         )
 
@@ -923,7 +978,8 @@ if __name__ == '__main__':
                           default_text=(sg.user_settings_get_entry('-ml key-')))],
             [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
-             sg.Combo(list1ToN(100), default_value=0, key='-START LINE-', readonly=True),
+             sg.Combo(list1ToN(100), default_value=sg.user_settings_get_entry('-start line-'), key='-START LINE-',
+                      readonly=True),
              sg.Button('Valori di controllo')],
         ]
 
@@ -968,7 +1024,7 @@ if __name__ == '__main__':
 
         # --------------------------------- Create Window ---------------------------------
         window = sg.Window('Celex', layout, finalize=True, icon=icon_path, resizable=True,
-                           use_default_focus=False, size=(965, 650))
+                           use_default_focus=False, size=(965, 670))
         window.set_min_size(window.size)
         window.bring_to_front()
         window['-DEMO LIST-'].expand(True, True, True)
@@ -996,7 +1052,18 @@ if __name__ == '__main__':
         Used to save the settings for the current configuration.
         Saves the text in the ml element on the right main window
         """
+        celex = Celex(values)
+        cv_col_list = []
         sg.user_settings_set_entry('-ml key-', values[ML_KEY])
+        sg.user_settings_set_entry('-start line-', values['-START LINE-'])
+        sg.user_settings_set_entry('-col filter-', values['-COLUMN FILTER-'])
+        sg.user_settings_set_entry('-fill input-', values['-FILL INPUT-'])
+        if celex.readColumnList():
+            cv_col_list = celex.readColumnList()
+            if cv_col_list[len(cv_col_list) - 1] == '':
+                cv_col_list.pop(len(cv_col_list) - 1)
+        sg.user_settings_set_entry('-cv col combo-', cv_col_list)
+
 
     def main():
         """
@@ -1021,6 +1088,8 @@ if __name__ == '__main__':
             celex = Celex(values)
 
             counter += 1
+            if event:
+                saveSettings(values)
             if event in (sg.WINDOW_CLOSED, 'Exit'):
                 break
             if event == 'Guida':
@@ -1051,8 +1120,6 @@ if __name__ == '__main__':
                                 execute_command_subprocess(editor_program, full_filename)
 
             elif event == 'Avvia (Tutti i file)':
-                saveSettings(values)
-
                 celex_excel = Excel(celex.getDemoListEntry(), values)
 
                 celex.inputBufferList = celex.ignoreComments()
@@ -1064,43 +1131,63 @@ if __name__ == '__main__':
 
                 # Creates the missing columns in each df object in excel_list_filtered
                 excel_list_final = []
-                for excel in excel_list_filtered:
-                    index = excel_list_filtered.index(excel)
-                    excel_list_final.append(
-                        celex_excel.createColumns([missing_columns[get_path_list()[index]]], values['-FILL INPUT-'],
-                                                  excel))
+                if missing_columns[get_path_list()[0]]:
+                    for excel in excel_list_filtered:
+                        index = excel_list_filtered.index(excel)
+                        excel_list_final.append(celex_excel.createColumns(missing_columns[get_path_list()[index]],
+                                                                          values['-FILL INPUT-'],
+                                                                          excel))
 
                 # Joins each df with its corresponding missing columns df
                 excel_list = celex_excel.joinDF(excel_list_filtered, excel_list_final)
 
-                if celex.getDemoListEntry():
-                    list_row = celex.getRowListSQL(celex.getDemoListEntry()[0])
-                for row in list_row:
-                    # Creates a to_separate list where each entry is a list of strings to separate in different cells
-                    to_separate = []
-                    for entry in row:
-                        if ' ' in entry or '\n' in entry:
-                            to_separate.append(entry)
+                # SplitDict is a dict with column:values and SplitList is a list of values
+                splitDict = {}
+                splitList = []
+                excel_list_original = celex_excel.getExcelList()
+                for entry in excel_list_original:
+                    entry_index = excel_list_original.index(entry)
+                    list_row = celex.getRowListDF(entry)
+                    for row in list_row:
+                        # Creates a to_separate list where each entry is a
+                        # list of strings to separate in different cells
+                        to_separate = []
+                        for cell in row:
+                            if ' ' in cell or '\n' in cell:
+                                to_separate.append(cell)
 
-                    # Creates a buffer list to loop through the entries in
-                    # the to_separate list and performs a check for keywords
-                    splitList = []
-                    index = 0
-                    isLastOneUsed = False
-                    # For every string that needs to be split
-                    for entry in to_separate:
-                        # For every word in each of these strings
-                        for word in entry.split(' '):
-                            # For each keyword pulled from the ML element
-                            for keyWord in celex.getKeyWords():
-                                if isLastOneUsed:
-                                    continue
-                                for filter in columns_filter:
-                                    splitList, isLastOneUsed = celex.checkKeyWord(index, entry, splitList, word,
-                                                                                  keyWord, int, isLastOneUsed)
+                        # Creates a buffer list to loop through the entries in
+                        # the to_separate list and performs a check for keywords
 
-                print(splitList)
+                        isLastOneUsed = False
 
+                        for column in celex.getMissingColumns(entry):
+                            splitDict[column] = []
+                        # For every string that needs to be split
+                        for cell in to_separate:
+                            # For every word in each of these strings
+                            for word in cell.split(' '):
+                                index = cell.split(' ').index(word)
+                                # For each keyword pulled from the ML element
+                                for keyWord in celex.getKeyWords():
+                                    keyIndex = celex.getKeyWords().index(keyWord)
+                                    if isLastOneUsed:
+                                        continue
+                                    for column in celex.getMissingColumns(entry):
+                                        splitBuff, isLastOneUsed = celex.checkKeyWord(index, cell,
+                                                                                      word, keyWord,
+                                                                                      sg.user_settings_get_entry(
+                                                                                          '-cv type-')[keyIndex],
+                                                                                      isLastOneUsed)
+                                        if splitBuff:
+                                            splitDict[column].append(splitBuff)
+                    # df_buff is a dj object containing the values with their respective columns
+                    df_buff = pd.DataFrame()
+                    for column in splitDict:
+                        df_buff[column] = splitDict[column]
+
+                    excel_list[entry_index] = entry.join(df_buff)
+                print(excel_list)
 
             # elif event == 'Avvia':
 
@@ -1348,16 +1435,22 @@ if __name__ == '__main__':
             print(f'** Warning Exception parsing version: {version} **  ', f'{e}')
 
         # Set addditional user settings
-        sg.user_settings_set_entry('-output folder-', [])
-        sg.user_settings_set_entry('-folder names o-', [])
         sg.user_settings_set_entry('-ml key-', '//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
                                                '//Esempio:\n'
                                                'C45 = PC456T\n'
                                                'C40 = PC40T67\n')
+        sg.user_settings_set_entry('-col filter-', 'Es: Commessa; Pz; Misure Finite; Misure')
+        sg.user_settings_set_entry('-fill input-', 'Es: 769KF3; Celex')
+        sg.user_settings_set_entry('-start line-', 0)
+
         # Control values window settings
         sg.user_settings_set_entry('-cb value-', [])
         sg.user_settings_set_entry('-cv input-', [])
         sg.user_settings_set_entry('-cv type-', [])
+        # Sets the combo list choices to display on the control window
+        sg.user_settings_set_entry('-cv col combo-', [])
+        # Each entry represents the corresponding entry in the control window
+        sg.user_settings_set_entry('-cv col entry-', [])
 
         # Set the default output to Desktop/Celex
         default_output_folder = os.path.join(os.environ["HOMEPATH"], "Desktop")
