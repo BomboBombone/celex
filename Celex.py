@@ -606,6 +606,7 @@ if __name__ == '__main__':
                         return_value.append(file_path.split('/')[len(file_path.split('/')) - 1])
         return return_value
 
+
     def insertEntryRow():
         """
         Changes settings to fit the new layout
@@ -622,20 +623,26 @@ if __name__ == '__main__':
         sg.user_settings_set_entry('-cv input-', cv_input_list)
         sg.user_settings_set_entry('-cv type-', cv_type_list)
 
+
     def createEntryRow(index, layout):
         """
         Used to create an entry in the specified layout
         :returns layout:
         """
-        entry_row = [sg.CB('Attivo', text_color='red', key='-CB ' + str(index) + '-', default=True),
-                     sg.Input('Valore', key='-CV INPUT ' + str(index) + '-', tooltip='Valore di controllo'),
-                     sg.Combo(['Stringa', 'Numero'], default_value='Stringa', key='-CV TYPE ' + str(index) + '-',
+        entry_row = [sg.CB('Attivo', text_color='red', key='-CB ' + str(index) + '-',
+                           default=sg.user_settings_get_entry('-cb value-')[index]),
+                     sg.Input(sg.user_settings_get_entry('-cv input-')[index],
+                              key='-CV INPUT ' + str(index) + '-',
+                              tooltip='Valore di controllo'),
+                     sg.Combo(['Stringa', 'Numero'], default_value=sg.user_settings_get_entry('-cv type-')[index],
+                              key='-CV TYPE ' + str(index) + '-',
                               tooltip='Stringa = Lettere, '
                                       'numeri e caratteri '
                                       'vari\nNumero = solo '
                                       'numeri')]
         layout.append(entry_row)
         return layout
+
 
     def removeEntry():
         """
@@ -646,32 +653,44 @@ if __name__ == '__main__':
         cv_input_list = sg.user_settings_get_entry('-cv input-')
         cv_type_list = sg.user_settings_get_entry('-cv type-')
         # Sets the new settings
-        if cb_value_list:
+        if len(cb_value_list) > 1:
             cb_value_list.pop(len(cb_value_list) - 1)
-        if cv_input_list:
+        if len(cv_input_list) > 1:
             cv_input_list.pop(len(cv_input_list) - 1)
-        if cv_type_list:
+        if len(cv_type_list) > 1:
             cv_type_list.pop(len(cv_type_list) - 1)
         sg.user_settings_set_entry('-cb value-', cb_value_list)
         sg.user_settings_set_entry('-cv input-', cv_input_list)
         sg.user_settings_set_entry('-cv type-', cv_type_list)
 
+
     def get_num_of_entries():
+        """
+        Gets the number of entries in the control interface GUI
+        """
         try:
             number_of_entries = len(sg.user_settings_get_entry('-cb value-'))
         except TypeError:
             number_of_entries = 0
         return number_of_entries
 
+
     def createBaseLayout():
+        """
+        Used to create the base layout for the control window GUI
+        """
         layout = [[sg.Text('Valori di controllo', font='DEFAULT 25')],
-                  [sg.Text('Inserisci sotto i valori', font='_ 16')],
+                  [sg.Text('Leggi la guida per maggiori informazioni', font='_ 14')],
                   [sg.Button('Aggiungi valore', enable_events=True, key='-ADD ENTRY-'),
                    sg.Button('Rimuovi valore', enable_events=True, key='-REMOVE ENTRY-')]]
         entries_num = get_num_of_entries()
+        # If there is less than 2 entries, the remove value button will be removed fom the GUI
+        if entries_num == 1:
+            layout[2][1] = sg.Button('Rimuovi valore', enable_events=True, key='-REMOVE ENTRY-', visible=False)
         for i in list1ToN(entries_num):
             layout = createEntryRow(i, layout)
         return layout
+
 
     def make_control_window(create_entry: bool, del_entry: bool):
         """
@@ -692,16 +711,38 @@ if __name__ == '__main__':
 
         return window_control
 
+    def saveControlSettings(values):
+        """
+        Used to save the current settings for the control window
+        """
+        cb_value_list = []
+        cv_input_list = []
+        cv_type_list = []
+        # Append all the values to buffer lists
+        for i in list1ToN(get_num_of_entries()):
+            cb_value_list.append(values['-CB ' + str(i) + '-'])
+            cv_input_list.append(values['-CV INPUT ' + str(i) + '-'])
+            cv_type_list.append(values['-CV TYPE ' + str(i) + '-'])
+        # Set the values to settings
+        sg.user_settings_set_entry('-cb value-', cb_value_list)
+        sg.user_settings_set_entry('-cv input-', cv_input_list)
+        sg.user_settings_set_entry('-cv type-', cv_type_list)
+
     def control_variables_window():
         """
         Shows the window used to specify which values to look for when sorting out the entries in
         'value keyword' or 'keyword value' strings
         :return True if variables have been changed:
         """
-        window_control = make_control_window(False, False)
+        if get_num_of_entries():
+            window_control = make_control_window(False, False)
+        else:
+            window_control = make_control_window(True, False)
         while True:
             event, values = window_control.read()
 
+            if event:
+                saveControlSettings(values)
             if event in ('Cancella', sg.WIN_CLOSED, sg.WINDOW_CLOSE_ATTEMPTED_EVENT):
                 break
             if event == '-ADD ENTRY-':
@@ -719,6 +760,7 @@ if __name__ == '__main__':
         return False
 
         window_control.close()
+
 
     def settings_window():
         """
@@ -841,6 +883,7 @@ if __name__ == '__main__':
                           "Inserisci una REGEX(REGular EXpression) per filtrare i risultati"
 
         left_col = sg.Column([
+            [sg.Text('Seleziona i file:')],
             [sg.Listbox(values=get_file_list(), select_mode=sg.SELECT_MODE_EXTENDED, size=(50, 20),
                         bind_return_key=True, key='-DEMO LIST-')],
             [sg.Text('Filtro (F1):', tooltip=filter_tooltip),
@@ -873,14 +916,11 @@ if __name__ == '__main__':
         column_filter = [column_filter_in, column_filter_out]
 
         right_col = [
-            [sg.Text('Parole da sostituire:', font='Default 10', pad=(0, 0), justification='left', grab=True)],
+            [sg.Text('Parole da sostituire:', font='Default 10', justification='left', grab=True)],
             [sg.Multiline(write_only=False, key=ML_KEY, tooltip='Le linee che iniziano con'
                                                                 '"//" verranno ignorate, e sono considerate commenti'
                           , expand_y=True, expand_x=True,
-                          default_text=('//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
-                                        '//Esempio:\n'
-                                        'C45 = PC456T\n'
-                                        'C40 = PC40T67\n'))],
+                          default_text=(sg.user_settings_get_entry('-ml key-')))],
             [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
              sg.Combo(list1ToN(100), default_value=0, key='-START LINE-', readonly=True),
@@ -920,7 +960,6 @@ if __name__ == '__main__':
                   [choose_folder_at_top,
                    sg.FolderBrowse('Esplora file', target='-FOLDERNAME IN-', enable_events=True, key='-FN BROWSE IN-'),
                    sg.B('Pulisci', key='-CLEAN FOLDERNAME IN-'), sg.Text('©Bombo')],
-                  # [sg.Column([[left_col],[ lef_col_find_re]], element_justification='l',  expand_x=True, expand_y=True), sg.Column(right_col, element_justification='c', expand_x=True, expand_y=True)],
                   [sg.Pane([sg.Column([[left_col], [lef_col_find_re]], element_justification='l', expand_x=True,
                                       expand_y=True),
                             sg.Column(right_col, element_justification='l', expand_x=True, expand_y=True, )],
@@ -951,6 +990,13 @@ if __name__ == '__main__':
 
 
     # --------------------------------- Main Program Layout ---------------------------------
+
+    def saveSettings(values):
+        """
+        Used to save the settings for the current configuration.
+        Saves the text in the ml element on the right main window
+        """
+        sg.user_settings_set_entry('-ml key-', values[ML_KEY])
 
     def main():
         """
@@ -1005,6 +1051,8 @@ if __name__ == '__main__':
                                 execute_command_subprocess(editor_program, full_filename)
 
             elif event == 'Avvia (Tutti i file)':
+                saveSettings(values)
+
                 celex_excel = Excel(celex.getDemoListEntry(), values)
 
                 celex.inputBufferList = celex.ignoreComments()
@@ -1022,9 +1070,11 @@ if __name__ == '__main__':
                         celex_excel.createColumns([missing_columns[get_path_list()[index]]], values['-FILL INPUT-'],
                                                   excel))
 
+                # Joins each df with its corresponding missing columns df
                 excel_list = celex_excel.joinDF(excel_list_filtered, excel_list_final)
 
-                list_row = celex.getRowListSQL(celex.getDemoListEntry()[0])
+                if celex.getDemoListEntry():
+                    list_row = celex.getRowListSQL(celex.getDemoListEntry()[0])
                 for row in list_row:
                     # Creates a to_separate list where each entry is a list of strings to separate in different cells
                     to_separate = []
@@ -1300,6 +1350,11 @@ if __name__ == '__main__':
         # Set addditional user settings
         sg.user_settings_set_entry('-output folder-', [])
         sg.user_settings_set_entry('-folder names o-', [])
+        sg.user_settings_set_entry('-ml key-', '//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
+                                               '//Esempio:\n'
+                                               'C45 = PC456T\n'
+                                               'C40 = PC40T67\n')
+        # Control values window settings
         sg.user_settings_set_entry('-cb value-', [])
         sg.user_settings_set_entry('-cv input-', [])
         sg.user_settings_set_entry('-cv type-', [])
