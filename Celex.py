@@ -94,8 +94,10 @@ if __name__ == '__main__':
         :return: Path to list of files using the user settings for this file.  Returns folder of this file if not found
         :rtype: str
         """
-        demo_path = sg.user_settings_get_entry('-demos folder-', os.path.dirname(__file__))
 
+        demo_path = sg.user_settings_get_entry('-demos folder-', os.path.dirname(__file__))
+        if demo_path == 'C' or demo_path == 'C:':
+            demo_path = 'C:/'
         return demo_path
 
 
@@ -368,9 +370,8 @@ if __name__ == '__main__':
             dict = {}
             index = 0
             for i in list:
-                bufferList = list[index].strip()
                 bufferList = list[index].split('=')
-                dict[bufferList[0]] = bufferList[1]
+                dict[bufferList[0].strip()] = bufferList[1].strip()
                 index += 1
             return dict
 
@@ -416,7 +417,7 @@ if __name__ == '__main__':
                 return_value.append(list_row)
             return return_value
 
-        def getRowListDF(self, df):
+        def getRowListDF(self, df, removeIndex: bool):
             """
             Fetches the row list from a df object
             """
@@ -429,14 +430,15 @@ if __name__ == '__main__':
             # Creates a cursor for the SQL table and gets every entry from Table1
             cur = bufferExcelSQL.cursor()
             cur.execute('SELECT * FROM Table1')
-            list_row = []
             return_value = []
             for row in cur.fetchall():
+                list_row = []
                 # Converts row tuple to list
                 for _ in row:
                     list_row.append(_)
-                # Pop the first element which is the row index
-                list_row.pop(0)
+                if removeIndex:
+                    # Pop the first element which is the row index
+                    list_row.pop(0)
                 # Appends the last value to the return_value list, which is a list of rows in the excel file
                 return_value.append(list_row)
             return return_value
@@ -465,20 +467,174 @@ if __name__ == '__main__':
     class Excel(Celex):
         def __init__(self, excel, values):
             super().__init__(values)
+            # The excel here is a list of excel file paths
             self.excel = excel
+
+        def getMaterialsDict(self, df_list, materials_list):
+            """
+            Returns a dictionary with row_number and material
+            """
+            return_value = {}
+            for df in df_list:
+                list_row = self.getRowListDF(df, False)
+                for row in list_row:
+                    row_index = row[0]
+                    return_value[row_index] = ''
+                    for cell in row:
+                        if row.index(cell) == 1:
+                            continue
+                        for string in str(cell).split(' '):
+                            for material in materials_list:
+                                if material in string:
+                                    return_value[row_index] = material
+                    if not return_value[row_index]:
+                        return_value[row_index] = ''
+            return return_value
+
+        def removeSpaces(self, ex_list, removeLines=True):
+            """
+            Returns a list of all df objects dropped of all the unnamed columns and empty cells
+            """
+            return_list = []
+            excel_list = ex_list
+            # Removes blank columns
+            for df in excel_list:
+                to_drop = []
+                if removeLines:
+                    df = self.removeRows(sg.user_settings_get_entry('-start line-'), df)
+                for column in df.columns:
+                    if str(column).startswith('Unnamed:'):
+                        to_drop.append(column)
+                df = df.drop(columns=to_drop)
+                return_list.append(df)
+            # Drops all blank rows
+            for df in return_list:
+                df_index = return_list.index(df)
+                df = df.dropna(how='all')
+                list_row = self.getRowListDF(df, False)
+                # Rows to drop that don't have the same number of values as the valid columns
+                to_drop = []
+                row_index = sg.user_settings_get_entry('-start line-')
+                valid_values = 0
+                try:
+                    for cell in list_row[0]:
+                        if cell:
+                            valid_values += 1
+                except IndexError:
+                    pass
+                for row in list_row:
+                    to_drop_values = 0
+                    for cell in row:
+                        if cell:
+                            to_drop_values += 1
+                    if to_drop_values == valid_values:
+                        continue
+                    else:
+                        to_drop.append(row[0])
+                    row_index += 1
+                df = df.drop(to_drop)
+                return_list[df_index] = df
+
+            return return_list
+
+        def separateMeasures(self, ex_list):
+            """
+            Returns a dictionary containing the measures separated
+            """
+            return_dict = {}
+            return_dict['Spessore'] = []
+            return_dict['Larghezza'] = []
+            return_dict['Lunghezza'] = []
+            if self.values['-SPLIT MEASURES-']:
+                excel_list = ex_list
+                for df in excel_list:
+                    for row in self.getRowListDF(df, True):
+                        for cell in row:
+                            if not cell:
+                                continue
+                            if ' ' not in str(cell):
+                                continue
+                            cell_list = str(cell).split(' ')
+                            measures_found = False
+                            for word in cell_list:
+                                if measures_found:
+                                    break
+                                word_index = cell_list.index(word)
+                                if 'x' not in word and 'Ø' not in word and 'L=' not in word:
+                                    continue
+                                measure_list = []
+                                if word == 'x':
+                                    measure_list = [cell_list[word_index - 1], cell_list[word_index + 1]]
+                                    if cell_list[word_index + 2] == 'x':
+                                        measure_list.append(cell_list[word_index + 3])
+                                    measures_found = True
+                                elif 'x' in word:
+                                    measure_list = word.split('x')
+
+                                for measure in measure_list:
+                                    i = measure_list.index(measure)
+                                    if measure.startswith('Ø'):
+                                        measure = measure[1:len(measure)]
+                                    elif measure.startswith('L='):
+                                        measure = measure[2:len(measure)]
+                                    measure_list[i] = measure
+
+                                if measure_list:
+                                    if len(measure_list) == 2:
+                                        return_dict['Lunghezza'].append(measure_list[0])
+                                        return_dict['Larghezza'].append(measure_list[1])
+                                        return_dict['Spessore'].append('')
+                                    elif len(measure_list) == 3:
+                                        return_dict['Lunghezza'].append(measure_list[0])
+                                        return_dict['Larghezza'].append(measure_list[1])
+                                        return_dict['Spessore'].append(measure_list[2])
+                                elif 'Ø' in word:
+                                    return_dict['Lunghezza'].append(word[1:len(word)])
+                                    return_dict['Spessore'].append('')
+                                elif 'L=' in word:
+                                    return_dict['Larghezza'].append(word[2:len(word)])
+            return return_dict
 
         def removeRows(self, row_number, df):
             """
             Used to remove row_number-1 of rows from the top of the specified df object
             """
+            list_rows = self.getRowListDF(df, True)
             df_length = self.getNofRows(df)
             # Gets a list from row_number to df_length
             listNtoLen = []
+            if row_number < 2:
+                row_number = 2
             for i in range(1, df_length + 1):
                 if i >= row_number:
                     listNtoLen.append(i - 1)
+            df = df.filter(items=listNtoLen, axis=0)
+
+            # Changes the column names
+            col_dict = {}
+            original_cols = []
+            new_cols = []
+            for column in df.columns:
+                original_cols.append(column)
+            index = 0
+            for row in list_rows:
+                if index == row_number - 2:
+                    i = 0
+                    for column in row:
+                        if column is None:
+                            column = 'Unnamed: ' + str(i)
+                        new_cols.append(column)
+                        i += 1
+                index += 1
+            for column in original_cols:
+                i = original_cols.index(column)
+                try:
+                    col_dict[column] = new_cols[i]
+                except IndexError:
+                    col_dict[column] = 'Unnamed ' + str(i)
+            df = df.rename(columns=col_dict)
             # Returns a df containing all rows from row_number to the end
-            return df.filter(items=listNtoLen, axis=0)
+            return df
 
         def getExcelList(self):
             """
@@ -489,7 +645,7 @@ if __name__ == '__main__':
                 excel_list.append(pd.read_excel(file_path))
             return excel_list
 
-        def filterByColumn(self, columns: list):
+        def filterByColumn(self, columns: list, excel_list: list):
             """
             Takes an excel data frame created by pandas and generates a new representation
             which uses the filter specified in the parameter columns, which needs to be a list.
@@ -502,24 +658,11 @@ if __name__ == '__main__':
             for entry in get_file_list_dict().values():
                 missingColumns[entry] = []
             return_value = []
-            file_columns = []
-
-            # Creates a list of df objects taken from self.excel list which contains the paths
-            excel_list = []
-            for file_path in self.excel:
-                excel_list.append(pd.read_excel(file_path))
+            file_columns = excel_list[0].columns
 
             # For every excel file that has been selected
             index = 0
             for excel in excel_list:
-                if self.values['-START LINE-']:
-                    excel = self.removeRows(self.values['-START LINE-'], excel)
-                else:
-                    excel = self.removeRows(1, excel)
-                # For every column in the file make them lowercase and remove all empty column cells
-                for excel_col in excel.columns:
-                    if not (excel_col.startswith('Unnamed:')):
-                        file_columns.append(excel_col.lower())
                 # Loop to check if every column in the column list exists in the source excel
                 columns_buff = []
                 for column in columns:
@@ -541,14 +684,15 @@ if __name__ == '__main__':
             Used to save to disk the DF obj into an excel file inside the user_specified folder
             """
             input_folder = self.values['-FOLDERNAME IN-']
-            file_path = os.path.join(input_folder, file_name)
-            self.checkOutPutFolder(input_folder)
+            output_folder = sg.user_settings_get_entry('-output folder-') + '/'
+            self.checkOutPutFolder(output_folder)
 
             for file_index in list1ToN(20):
-                if os.path.exists(file_path + '_Modificato' + '(' + str(file_index) + ')'):
+                if os.path.exists(output_folder + file_name + '_Modificato' + '(' + str(file_index) + ').xlsx'):
                     continue
                 else:
-                    df.to_excel(file_path + '_Modificato' + '(' + str(file_index) + ')', sheet_name='Foglio1',
+                    df.to_excel(output_folder + file_name + '_Modificato' + '(' + str(file_index) + ').xlsx',
+                                sheet_name='Foglio1',
                                 index=False)
                     break
 
@@ -593,10 +737,12 @@ if __name__ == '__main__':
             """
             Used to get the number of rows of a specified df obj
             """
-            df_length = 1
-            df_rows = self.getRowListDF(df)
+            df_length = 0
+            df_rows = self.getRowListDF(df, True)
             for row in df_rows:
-                df_length = df_rows.index(row) + 1
+                df_length += 1
+            if not df_length:
+                df_length = 1
             return df_length
 
         def joinDF(self, excel_list_dest, excel_list_source):
@@ -607,7 +753,8 @@ if __name__ == '__main__':
             if excel_list_dest and excel_list_source:
                 for excel in excel_list_dest:
                     index = excel_list_dest.index(excel)
-                    return_value.append(excel.join(excel_list_source[index]))
+                    if excel_list_source[index]:
+                        return_value.append(excel.join(excel_list_source[index]))
             return return_value
 
 
@@ -840,7 +987,7 @@ if __name__ == '__main__':
         layout = [[sg.T('Impostazioni di Celex', font='DEFAULT 25')],
                   [sg.T('Percorso di output', font='_ 16', tooltip='Cartella di destinazione dei file')],
                   [sg.Combo(sorted(sg.user_settings_get_entry('-folder names o-', [])),
-                            default_value=sg.user_settings_get_entry('-output folder-', get_demo_path()), size=(50, 1),
+                            default_value=sg.user_settings_get_entry('-output folder-'), size=(50, 1),
                             key='-FOLDERNAME-'),
                    sg.FolderBrowse('Esplora file', target='-FOLDERNAME-'), sg.B('Pulisci')],
                   [sg.T('Editor', font='_ 16')],
@@ -891,7 +1038,7 @@ if __name__ == '__main__':
             elif event == 'Pulisci':
                 sg.user_settings_set_entry('-folder names-', [])
                 sg.user_settings_set_entry('-last filename-', '')
-                window_settings['-FOLDERNAME-'].update(values=[], value='')
+                window_settings['-FOLDERNAME-'].update(values=[])
 
         window_settings.close()
         return settings_changed
@@ -911,6 +1058,16 @@ if __name__ == '__main__':
             num = num + 1
         return return_value
 
+    def list0toN(n):
+        """
+        Just a list of numbers from 1 to n
+        """
+        num = 0
+        return_value = []
+        for int in range(0, n + 1):
+            return_value.append(num)
+            num = num + 1
+        return return_value
 
     # --------------------------------- Create the window ---------------------------------
     def make_window():
@@ -943,15 +1100,17 @@ if __name__ == '__main__':
             [sg.Text('Filtro (F1):', tooltip=filter_tooltip),
              sg.Input(size=(25, 1), focus=True, enable_events=True, key='-FILTER-', tooltip=filter_tooltip),
              sg.T(size=(15, 1), k='-FILTER NUMBER-')],
-            [sg.Button('Avvia (Tutti i file)'), sg.B('Modifica file'), sg.B('Pulisci'), sg.B('Apri in cartella')],
-            [sg.Text('Trova (F2):', tooltip=find_tooltip),
-             sg.Input(size=(25, 1), enable_events=True, key='-FIND-', tooltip=find_tooltip),
+            [sg.Button('Avvia (Tutti i file)', enable_events=True, k='-ALL FILES-'), sg.B('Modifica file'),
+             sg.B('Pulisci'), sg.B('Apri in cartella')],
+            [sg.Text('Trova (F2):', tooltip=find_tooltip, visible=False),
+             sg.Input(size=(25, 1), enable_events=True, key='-FIND-', tooltip=find_tooltip, visible=False),
              sg.T(size=(15, 1), k='-FIND NUMBER-')],
         ], element_justification='l', expand_x=True, expand_y=True)
 
         lef_col_find_re = sg.pin(sg.Col([
             [sg.Text('Trova (F3):', tooltip=find_re_tooltip),
-             sg.Input(size=(25, 1), key='-FIND RE-', tooltip=find_re_tooltip), sg.B('Trova REGEX')]], k='-RE COL-'))
+             sg.Input(size=(25, 1), key='-FIND RE-', tooltip=find_re_tooltip), sg.B('Trova REGEX')]], k='-RE COL-',
+            visible=False))
 
         column_filter_in = sg.pin(sg.Column([
             [sg.Text('Colonne:', font='Default 10', pad=(0, 0), justification='left',
@@ -979,20 +1138,26 @@ if __name__ == '__main__':
             [sg.Column([column_filter])],
             [sg.Text('Riga inizio tabella:', tooltip='Se insicuri lasciare valore di default'),
              sg.Combo(list1ToN(100), default_value=sg.user_settings_get_entry('-start line-'), key='-START LINE-',
-                      readonly=True),
-             sg.Button('Valori di controllo')],
+                      readonly=False),
+             sg.Button('Valori di controllo'),
+             sg.Button('Materiali', k='-MATERIALS BUTTON-', visible=True)],
         ]
 
         options_at_bottom = sg.pin(
             sg.Column([[sg.CB('Mostra solo il primo risultato nel file', default=True, enable_events=True,
                               k='-FIRST MATCH ONLY-', visible=False),
                         sg.CB('Ignora maiuscolo', default=True, enable_events=True,
-                              k='-IGNORE CASE-'),
+                              k='-IGNORE CASE-', visible=False),
                         sg.CB('Attendi completamento', default=False, enable_events=True,
                               k='-WAIT-', visible=False),
                         sg.CB('Crea colonne mancanti', tooltip='Decidi se creare le colonne mancanti '
                                                                'all\'interno del file di origine', default=False,
                               k='-CREATE MISSING-', enable_events=True),
+                        sg.CB('Separa misure', k='-SPLIT MEASURES-',
+                              tooltip='Separa le stringhe del tipo "100x60x70" in celle separate', default=True),
+                        sg.CB('Filtra materiali', k='-MATERIALS LIST-', default=True,
+                              tooltip='Filtra i materiali specificati ed assegnali ad una nuova colonna',
+                              enable_events=True)
                         ]],
                       pad=(0, 0), k='-OPTIONS BOTTOM-', expand_x=True, expand_y=False),
             expand_x=True, expand_y=False)
@@ -1005,7 +1170,7 @@ if __name__ == '__main__':
 
         choose_folder_at_top = sg.pin(
             sg.Column([[sg.T('Clicca Impostazioni per cambiare la cartella di destinazione'),
-                        sg.Combo(sorted(sg.user_settings_get_entry('-folder names-', [])),
+                        sg.Combo(sorted(sg.user_settings_get_entry('-folder names-')),
                                  default_value=sg.user_settings_get_entry('-demos folder-', ''),
                                  size=(50, 30), key='-FOLDERNAME IN-', enable_events=True, readonly=False),
                         ]], pad=(0, 0),
@@ -1064,6 +1229,182 @@ if __name__ == '__main__':
                 cv_col_list.pop(len(cv_col_list) - 1)
         sg.user_settings_set_entry('-cv col combo-', cv_col_list)
 
+    def getMaterialsString():
+        """
+        Get a string of the materials separated by semicolumns
+        """
+        materials_list = sg.user_settings_get_entry('-materials list-')
+        return_value = ''
+        for material in materials_list:
+            return_value = return_value + material + ';'
+        if return_value == '':
+            return_value = 'Es: C40; C45; C70'
+        return return_value
+
+    def make_materials_window():
+        """
+        Creates a materials window element
+        """
+        layout = [
+            [sg.Text('Lista dei materiali', font='DEFAULT 25')],
+            [sg.Input(getMaterialsString(), tooltip='Separa ogni materiale con un ";"', k='-MATERIALS-')],
+            [
+                sg.Column([
+                    [sg.Button('Ok', bind_return_key=True), sg.Button('Cancella')]
+                ], justification='left')
+            ]
+        ]
+        window_materials = sg.Window('Materiali', layout, icon=icon_path)
+        return window_materials
+
+
+    def saveMaterialsSettings(values):
+        materials_list = values['-MATERIALS-'].split(';')
+        for material in materials_list:
+            i = materials_list.index(material)
+            if material == '':
+                materials_list.pop(i)
+                continue
+            if ' ' in material:
+                material = material.replace(' ', '')
+            if '\n' in material:
+                material = material.replace('\n', '')
+            materials_list[i] = material
+        sg.user_settings_set_entry('-materials list-', materials_list)
+
+    def materials_window():
+        window_materials = make_materials_window()
+        while True:
+            event, values = window_materials.read()
+
+            if event:
+                saveMaterialsSettings(values)
+            if event in ('Cancella', sg.WIN_CLOSED, sg.WINDOW_CLOSE_ATTEMPTED_EVENT):
+                break
+            if event == 'Ok':
+                window_materials.close()
+                return True
+        window_materials.close()
+        return False
+
+    def start(celex, values, path):
+        celex_excel = Excel([path], values)
+
+        celex.inputBufferList = celex.ignoreComments()
+
+        excel_list_original = celex_excel.getExcelList()
+
+        excel_list_original = celex_excel.removeSpaces(excel_list_original)
+
+        # Get all the rules and column filters
+        rule_list_dict = celex.getRuleListDict()
+        columns_filter = celex.readColumnList()
+        excel_list_filtered, missing_columns = celex_excel.filterByColumn(columns_filter, excel_list_original)
+
+        # Creates the missing columns in each df object in excel_list_filget_demo_pathtered
+        excel_list_final = []
+        if missing_columns[get_path_list()[0]]:
+            for excel in excel_list_filtered:
+                index = excel_list_filtered.index(excel)
+                excel_list_final.append(celex_excel.createColumns(missing_columns[get_path_list()[index]],
+                                                                  values['-FILL INPUT-'],
+                                                                  excel))
+
+        # Joins each df with its corresponding missing columns df
+        excel_list = celex_excel.joinDF(excel_list_filtered, excel_list_final)
+        excel_list = celex_excel.removeSpaces(excel_list, removeLines=False)
+
+        # SplitDict is a dict with column:values and SplitList is a list of values
+        splitDict = {}
+
+        for entry in excel_list_original:
+            entry_index = excel_list_original.index(entry)
+            list_row = celex.getRowListDF(entry, True)
+            for row in list_row:
+                # Creates a to_separate list where each entry is a
+                # list of strings to separate in different cells
+                to_separate = []
+                for cell in row:
+                    if not cell:
+                        continue
+                    if ' ' in str(cell) or '\n' in str(cell):
+                        to_separate.append(cell)
+
+                # Creates a buffer list to loop through the entries in
+                # the to_separate list and performs a check for keywords
+
+                isLastOneUsed = False
+
+                for column in celex.getMissingColumns(entry):
+                    splitDict[column] = []
+                # For every string that needs to be split
+                for cell in to_separate:
+                    # For every word in each of these strings
+                    for word in cell.split(' '):
+                        index = cell.split(' ').index(word)
+                        # For each keyword pulled from the ML element
+                        for keyWord in celex.getKeyWords():
+                            keyIndex = celex.getKeyWords().index(keyWord)
+                            if isLastOneUsed:
+                                continue
+                            for column in celex.getMissingColumns(entry):
+                                splitBuff, isLastOneUsed = celex.checkKeyWord(index, cell,
+                                                                              word, keyWord,
+                                                                              sg.user_settings_get_entry(
+                                                                                  '-cv type-')[keyIndex],
+                                                                              isLastOneUsed)
+                                if splitBuff:
+                                    splitDict[column].append(splitBuff)
+
+        # df_buff is a dj object containing the values with their respective columns
+        df_buff = pd.DataFrame()
+        for column in splitDict:
+            if splitDict[column]:
+                df_buff[column] = splitDict[column]
+
+        if excel_list:
+            excel_list[0] = excel_list[0].join(df_buff)
+
+        # Creates a measures dictionary if the checkbox is active, else it is empty
+        measures_dict = celex_excel.separateMeasures(excel_list_original)
+        df_buff = pd.DataFrame()
+        for column in measures_dict:
+            df_buff[column] = measures_dict[column]
+        # Reindex excel_list_original to fit the join function
+        df_buff_length = celex_excel.getNofRows(df_buff)
+        if excel_list:
+            if celex_excel.getNofRows(excel_list[0]) == df_buff_length:
+                excel_list[0] = excel_list[0].set_axis(list0toN(df_buff_length - 1), axis='index')
+                excel_list[0] = excel_list[0].join(df_buff)
+
+        if values['-MATERIALS LIST-']:
+            # Creates a material dict and a df_buff, then joins
+            material_dict = celex_excel.getMaterialsDict(excel_list_original,
+                                                         sg.user_settings_get_entry('-materials list-'))
+            df_buff = pd.DataFrame()
+            material_list = []
+            for row_num in material_dict:
+                material_list.append(material_dict[row_num])
+            df_buff['Materiali'] = material_list
+            if excel_list:
+                excel_list[0] = excel_list[0].join(df_buff)
+
+        # Substitutes all the rule keywords accordingly
+        for df in excel_list:
+            i = excel_list.index(df)
+            for rule in rule_list_dict:
+                dest = rule_list_dict[rule]
+                df = df.replace(rule, dest)
+            excel_list[i] = df
+
+        # Save every df object in the list to a file
+        for df in excel_list:
+            i = excel_list.index(df)
+            name = path.split('/')
+            name = name[len(name) - 1]
+            name = name.split('.')[0]
+            celex_excel.saveToFile(name + '_' + str(i), df)
+
 
     def main():
         """
@@ -1072,6 +1413,7 @@ if __name__ == '__main__':
         """
         # Control variables
         is_fill_input_visible = False
+        is_materials_visible = True
 
         find_in_file.file_list_dict = None
 
@@ -1090,7 +1432,7 @@ if __name__ == '__main__':
             counter += 1
             if event:
                 saveSettings(values)
-            if event in (sg.WINDOW_CLOSED, 'Exit'):
+            if event in (sg.WINDOW_CLOSED, 'Esci'):
                 break
             if event == 'Guida':
                 webbrowser.open('https://github.com/BomboBombone/celex', new=1)
@@ -1100,7 +1442,7 @@ if __name__ == '__main__':
 
             if event == '-DEMO LIST-':  # if double clicked (used the bind return key parm)
                 if sg.user_settings_get_entry('-dclick runs-'):
-                    event = 'Avvia (Tutti i file)'
+                    event = 'Avvia'
                 elif sg.user_settings_get_entry('-dclick edits-'):
                     event = 'Modifica file'
             if event == 'Modifica file':
@@ -1119,79 +1461,15 @@ if __name__ == '__main__':
                             except:
                                 execute_command_subprocess(editor_program, full_filename)
 
-            elif event == 'Avvia (Tutti i file)':
-                celex_excel = Excel(celex.getDemoListEntry(), values)
-
-                celex.inputBufferList = celex.ignoreComments()
-
-                # Get all the rules and column filters
-                rule_list_dict = celex.getRuleListDict()
-                columns_filter = celex.readColumnList()
-                excel_list_filtered, missing_columns = celex_excel.filterByColumn(columns_filter)
-
-                # Creates the missing columns in each df object in excel_list_filtered
-                excel_list_final = []
-                if missing_columns[get_path_list()[0]]:
-                    for excel in excel_list_filtered:
-                        index = excel_list_filtered.index(excel)
-                        excel_list_final.append(celex_excel.createColumns(missing_columns[get_path_list()[index]],
-                                                                          values['-FILL INPUT-'],
-                                                                          excel))
-
-                # Joins each df with its corresponding missing columns df
-                excel_list = celex_excel.joinDF(excel_list_filtered, excel_list_final)
-
-                # SplitDict is a dict with column:values and SplitList is a list of values
-                splitDict = {}
-                splitList = []
-                excel_list_original = celex_excel.getExcelList()
-                for entry in excel_list_original:
-                    entry_index = excel_list_original.index(entry)
-                    list_row = celex.getRowListDF(entry)
-                    for row in list_row:
-                        # Creates a to_separate list where each entry is a
-                        # list of strings to separate in different cells
-                        to_separate = []
-                        for cell in row:
-                            if ' ' in cell or '\n' in cell:
-                                to_separate.append(cell)
-
-                        # Creates a buffer list to loop through the entries in
-                        # the to_separate list and performs a check for keywords
-
-                        isLastOneUsed = False
-
-                        for column in celex.getMissingColumns(entry):
-                            splitDict[column] = []
-                        # For every string that needs to be split
-                        for cell in to_separate:
-                            # For every word in each of these strings
-                            for word in cell.split(' '):
-                                index = cell.split(' ').index(word)
-                                # For each keyword pulled from the ML element
-                                for keyWord in celex.getKeyWords():
-                                    keyIndex = celex.getKeyWords().index(keyWord)
-                                    if isLastOneUsed:
-                                        continue
-                                    for column in celex.getMissingColumns(entry):
-                                        splitBuff, isLastOneUsed = celex.checkKeyWord(index, cell,
-                                                                                      word, keyWord,
-                                                                                      sg.user_settings_get_entry(
-                                                                                          '-cv type-')[keyIndex],
-                                                                                      isLastOneUsed)
-                                        if splitBuff:
-                                            splitDict[column].append(splitBuff)
-                    # df_buff is a dj object containing the values with their respective columns
-                    df_buff = pd.DataFrame()
-                    for column in splitDict:
-                        df_buff[column] = splitDict[column]
-
-                    excel_list[entry_index] = entry.join(df_buff)
-                print(excel_list)
-
-            # elif event == 'Avvia':
-
-            # elif event == 'Sostituisci':
+            elif event == '-ALL FILES-':
+                for path in get_file_list():
+                    celex = Celex(values)
+                    path = path.split(' ')[1]
+                    path = path[1:len(path) - 1]
+                    start(celex, values, path)
+            elif event == 'Avvia':
+                path = celex.getDemoListEntry()[0]
+                start(celex, values, path)
 
             elif event == '-FILTER-':
                 new_list = [i for i in file_list if values['-FILTER-'].lower() in i.lower()]
@@ -1254,6 +1532,7 @@ if __name__ == '__main__':
             elif event == '-CLEAN FOLDERNAME IN-':
                 file_list = get_file_list()
                 window['-FOLDERNAME IN-'].update('')
+                window['-FOLDERNAME IN-'].update(values=[])
                 window['-FILTER-'].update('')
                 window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
                 window['-FIND-'].update('')
@@ -1264,7 +1543,6 @@ if __name__ == '__main__':
                 sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME IN-'])
                 sg.user_settings_set_entry('-folder names-', list(
                     set(sg.user_settings_get_entry('-folder names-', []) + [values['-FOLDERNAME IN-'], ])))
-                file_list_dict = get_file_list_dict()
                 file_list = get_file_list()
                 window['-DEMO LIST-'].update(values=file_list)
                 window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
@@ -1276,9 +1554,8 @@ if __name__ == '__main__':
             elif event == 'Apri in cartella':
                 explorer_program = get_explorer()
                 if explorer_program:
-                    for file in values['-DEMO LIST-']:
-                        file_selected = str(file_list_dict[file])
-                        file_path = os.path.dirname(file_selected)
+                    for file in celex.getDemoListEntry():
+                        file_path = os.path.dirname(file)
                         if running_windows():
                             file_path = file_path.replace('/', '\\')
                         execute_command_subprocess(explorer_program, file_path)
@@ -1290,6 +1567,15 @@ if __name__ == '__main__':
                 else:
                     window['-FILL INPUT-'].update(visible=False)
                     is_fill_input_visible = False
+            if event == '-MATERIALS LIST-':
+                if not is_materials_visible:
+                    window['-MATERIALS BUTTON-'].update(visible=True)
+                    is_materials_visible = True
+                else:
+                    window['-MATERIALS BUTTON-'].update(visible=False)
+                    is_materials_visible = False
+            if event == '-MATERIALS BUTTON-':
+                materials_window()
         window.close()
 
 
@@ -1434,13 +1720,21 @@ if __name__ == '__main__':
         except Exception as e:
             print(f'** Warning Exception parsing version: {version} **  ', f'{e}')
 
+        try:
+            buff = sg.user_settings_get_entry('-demos folder-')
+        except FileNotFoundError:
+            sg.user_settings_set_entry('-demos folder-', ['C:/Program Files/Celex'])
+
         # Set addditional user settings
-        sg.user_settings_set_entry('-ml key-', '//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
-                                               '//Esempio:\n'
-                                               'C45 = PC456T\n'
-                                               'C40 = PC40T67\n')
-        sg.user_settings_set_entry('-col filter-', 'Es: Commessa; Pz; Misure Finite; Misure')
-        sg.user_settings_set_entry('-fill input-', 'Es: 769KF3; Celex')
+        if not sg.user_settings_get_entry('-ml key-'):
+            sg.user_settings_set_entry('-ml key-', '//Inserisci qui la lista dei valori di controllo (Uno per linea).\n'
+                                                   '//Esempio:\n'
+                                                   'C45 = PC456T\n'
+                                                   'C40 = PC40T67\n')
+        if not sg.user_settings_get_entry('-col filter-'):
+            sg.user_settings_set_entry('-col filter-', 'Es: Commessa; Pz; Misure Finite; Misure')
+        if not sg.user_settings_get_entry('-fill input-'):
+            sg.user_settings_set_entry('-fill input-', 'Es: 769KF3; Celex')
         sg.user_settings_set_entry('-start line-', 0)
 
         # Control values window settings
@@ -1451,6 +1745,10 @@ if __name__ == '__main__':
         sg.user_settings_set_entry('-cv col combo-', [])
         # Each entry represents the corresponding entry in the control window
         sg.user_settings_set_entry('-cv col entry-', [])
+
+        # Material window settings
+        if not sg.user_settings_get_entry('-materials list-'):
+            sg.user_settings_set_entry('-materials list-', [])
 
         # Set the default output to Desktop/Celex
         default_output_folder = os.path.join(os.environ["HOMEPATH"], "Desktop")
