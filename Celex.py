@@ -1556,8 +1556,6 @@ if __name__ == '__main__':
                 if explorer_program:
                     for file in celex.getDemoListEntry():
                         file_path = os.path.dirname(file)
-                        if running_windows():
-                            file_path = file_path.replace('/', '\\')
                         execute_command_subprocess(explorer_program, file_path)
 
             if event == '-CREATE MISSING-':
@@ -1723,7 +1721,12 @@ if __name__ == '__main__':
         try:
             buff = sg.user_settings_get_entry('-demos folder-')
         except FileNotFoundError:
-            sg.user_settings_set_entry('-demos folder-', ['C:/Program Files/Celex'])
+            sg.user_settings_set_entry('-demos folder-', 'C:/Program Files/Celex')
+
+        try:
+            buff = sg.user_settings_get_entry('-folder names-')
+        except FileNotFoundError:
+            sg.user_settings_set_entry('-folder names-', ['C:/Program Files/Celex'])
 
         # Set addditional user settings
         if not sg.user_settings_get_entry('-ml key-'):

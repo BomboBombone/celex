@@ -112,9 +112,9 @@ EXIT /B 0
 
 :moveCelex
 ::Moves celex.py to C:/Program Files/Celex/
-mkdir "C:/Program Files/Celex"
-move /Y "%~dp0..\Celex.py" "C:/Program Files/Celex"
-move /Y "%~dp0..\icon.ico" "C:/Program Files/Celex"
+mkdir "C:/Program Files/Celex" >nul 2>&1
+move /Y "%~dp0..\Celex.py" "C:/Program Files/Celex" >nul 2>&1
+move /Y "%~dp0..\icon.ico" "C:/Program Files/Celex" >nul 2>&1
 exit /B 0
 
 :addToPath
