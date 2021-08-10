@@ -1170,7 +1170,7 @@ if __name__ == '__main__':
 
         choose_folder_at_top = sg.pin(
             sg.Column([[sg.T('Clicca Impostazioni per cambiare la cartella di destinazione'),
-                        sg.Combo(sorted(sg.user_settings_get_entry('-folder names-')),
+                        sg.Combo(sorted(sg.user_settings_get_entry('-folder names-', [])),
                                  default_value=sg.user_settings_get_entry('-demos folder-', ''),
                                  size=(50, 30), key='-FOLDERNAME IN-', enable_events=True, readonly=False),
                         ]], pad=(0, 0),
