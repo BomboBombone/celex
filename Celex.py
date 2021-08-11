@@ -1,22 +1,19 @@
-# This is a sample Python script.
+"""
+This is a copyrighted program, but free to use. Just need some credit for this :)
+Made with love by:
+                                                                     BomboBombone
+"""
 
-# Press Maiusc+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     import os.path
     import subprocess
     import sys
-    import mmap, re
     import warnings
-    import base64
-    import sqlite3, pandas as pd
-
+    import sqlite3
+    import pandas as pd
     import PySimpleGUI as sg
     import webbrowser
     import ctypes
-    from threading import Thread
 
 
     class Closed:
