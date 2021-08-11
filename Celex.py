@@ -1458,30 +1458,30 @@ if __name__ == '__main__':
                             except:
                                 execute_command_subprocess(editor_program, full_filename)
 
-            elif event == '-ALL FILES-':
+            if event == '-ALL FILES-':
                 for path in get_file_list():
                     celex = Celex(values)
                     path = path.split(' ')[1]
                     path = path[1:len(path) - 1]
                     start(celex, values, path)
-            elif event == 'Avvia':
+            if event == 'Avvia':
                 path = celex.getDemoListEntry()[0]
                 start(celex, values, path)
 
-            elif event == '-FILTER-':
+            if event == '-FILTER-':
                 new_list = [i for i in file_list if values['-FILTER-'].lower() in i.lower()]
                 window['-DEMO LIST-'].update(new_list)
                 window['-FILTER NUMBER-'].update(f'{len(new_list)} file')
                 window['-FIND NUMBER-'].update('')
                 window['-FIND-'].update('')
                 window['-FIND RE-'].update('')
-            elif event == '-FOCUS FIND-':
+            if event == '-FOCUS FIND-':
                 window['-FIND-'].set_focus()
-            elif event == '-FOCUS FILTER-':
+            if event == '-FOCUS FILTER-':
                 window['-FILTER-'].set_focus()
-            elif event == '-FOCUS RE FIND-':
+            if event == '-FOCUS RE FIND-':
                 window['-FIND RE-'].set_focus()
-            elif event == '-FIND-' or event == '-FIRST MATCH ONLY-' or event == '-FIND RE-':
+            if event == '-FIND-' or event == '-FIRST MATCH ONLY-' or event == '-FIND RE-':
                 is_ignore_case = values['-IGNORE CASE-']
                 old_ignore_case = False
                 current_typed_value = str(values['-FIND-'])
@@ -1511,7 +1511,7 @@ if __name__ == '__main__':
                     window['-FILTER NUMBER-'].update('')
                     window['-FIND-'].update('')
                     window['-FILTER-'].update('')
-            elif event == 'Trova REGEX':
+            if event == 'Trova REGEX':
                 window['-ML-'].update('')
                 file_list = find_in_file(values['-FIND RE-'], celex)
                 window['-DEMO LIST-'].update(sorted(file_list))
@@ -1519,14 +1519,14 @@ if __name__ == '__main__':
                 window['-FILTER NUMBER-'].update('')
                 window['-FIND-'].update('')
                 window['-FILTER-'].update('')
-            elif event == 'Impostazioni':
+            if event == 'Impostazioni':
                 if settings_window() is True:
                     window.close()
                     window = make_window()
                     file_list_dict = get_file_list_dict()
                     file_list = get_file_list()
                     window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
-            elif event == '-CLEAN FOLDERNAME IN-':
+            if event == '-CLEAN FOLDERNAME IN-':
                 file_list = get_file_list()
                 window['-FOLDERNAME IN-'].update('')
                 window['-FOLDERNAME IN-'].update(values=[])
@@ -1536,7 +1536,7 @@ if __name__ == '__main__':
                 window['-DEMO LIST-'].update(file_list)
                 window['-FIND NUMBER-'].update('')
                 window['-FIND RE-'].update('')
-            elif event == '-FOLDERNAME IN-':
+            if event == '-FOLDERNAME IN-':
                 sg.user_settings_set_entry('-demos folder-', values['-FOLDERNAME IN-'])
                 sg.user_settings_set_entry('-folder names-', list(
                     set(sg.user_settings_get_entry('-folder names-', []) + [values['-FOLDERNAME IN-'], ])))
@@ -1548,11 +1548,12 @@ if __name__ == '__main__':
                 window['-FIND-'].update('')
                 window['-FIND RE-'].update('')
                 window['-FILTER-'].update('')
-            elif event == 'Apri in cartella':
+            if event == 'Apri in cartella':
                 explorer_program = get_explorer()
                 if explorer_program:
                     for file in celex.getDemoListEntry():
                         file_path = os.path.dirname(file)
+                        file_path = file_path.replace('/', '\\')
                         execute_command_subprocess(explorer_program, file_path)
 
             if event == '-CREATE MISSING-':
