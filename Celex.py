@@ -900,7 +900,8 @@ if __name__ == '__main__':
                         [sg.Column([[sg.Button('Ok'), sg.Button('Cancella')]], justification='right')]
                         ]
 
-        window_control = sg.Window('Valori di controllo', layout_final, icon=icon_path)
+        window_control = sg.Window('Valori di controllo', layout_final, icon=icon_path, keep_on_top=True,
+                                   disable_minimize=True)
 
         return window_control
 
@@ -1009,7 +1010,8 @@ if __name__ == '__main__':
                   [sg.B('Ok', bind_return_key=True), sg.B('Cancella')],
                   ]
 
-        window_settings = sg.Window('Impostazioni', layout, icon=icon_path)
+        window_settings = sg.Window('Impostazioni', layout, icon=icon_path, disable_minimize=True,
+                                    keep_on_top=True)
 
         settings_changed = False
 
@@ -1251,7 +1253,7 @@ if __name__ == '__main__':
                 ], justification='left')
             ]
         ]
-        window_materials = sg.Window('Materiali', layout, icon=icon_path)
+        window_materials = sg.Window('Materiali', layout, icon=icon_path, disable_minimize=True, keep_on_top=True)
         return window_materials
 
 
