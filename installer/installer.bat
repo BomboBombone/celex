@@ -7,29 +7,19 @@ call :check_Permissions
 
 if %errorlevel% EQU 0 (
 call :check_python
-if %errorlevel% EQU 0 (
-	call :install_python
-	)
-if %errorlevel% EQU 0 (
-	call :install_pip
-	call :setup_pip
-	) else ( call :setup_pip )
+call :install_python
+call :install_pip
+call :setup_pip
 call :moveCelex
 call :createShortCut
 call :addToPath
 
 echo Tutto e' stato configurato correttamente, premi qualsiasi tasto per chiudere la console :D, la finestra si chiuderà in 10 secondi...
-timeout /T 10 >nul
-)else (
-echo Premi qualsiasi tasto per uscire, la finestra si chiuderà in 10 secondi...
-timeout /T 10 >nul
-)
 del get-pip.py >nul 2>nul
 del python-installer.exe >nul 2>nul
 del create_shortcut.ps1 >nul 2>nul
 (goto) 2>nul & del "%~f0"
-
-
+)
 ::Checks if the console has been opened with admin privileges
 
 :check_Permissions
