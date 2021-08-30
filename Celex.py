@@ -68,7 +68,7 @@ if __name__ == '__main__':
         """
         return_value = []
         for _ in get_file_list_dict().keys():
-            return_value.append(_ + ' (' + get_file_list_dict()[_] + ')')
+            return_value.append(_)
         return return_value
 
 
@@ -79,9 +79,7 @@ if __name__ == '__main__':
         entry_list = get_file_list()
         return_value = []
         for entry in entry_list:
-            return_value_buff = entry.split(' ')[1]
-            return_value_buff = return_value_buff[1:len(return_value_buff) - 1]
-            return_value.append(return_value_buff)
+            return_value.append(sg.user_settings_get_entry('-demos folder-') + '/' + entry)
         return return_value
 
 
@@ -275,7 +273,6 @@ if __name__ == '__main__':
             Deletes all the lines marked as comments or empty in the input buffer
             :return:
             """
-            index = 0
             return_value = self.inputBufferList
             for line in self.inputBufferList:
                 index = self.inputBufferList.index(line)
@@ -310,8 +307,6 @@ if __name__ == '__main__':
             """
             full_filename = []
             for line in self.values['-DEMO LIST-']:
-                line = line.split(' ')[1]
-                line = line[1:len(full_filename) - 1]
                 full_filename.append(line)
             return full_filename
 
@@ -540,13 +535,18 @@ if __name__ == '__main__':
             Returns a dictionary containing the measures separated
             """
             return_dict = {}
-            return_dict['Spessore'] = []
-            return_dict['Larghezza'] = []
-            return_dict['Lunghezza'] = []
+            return_dict['Spessore 1'] = []
+            return_dict['Larghezza 1'] = []
+            return_dict['Lunghezza 1'] = []
+            return_dict['Spessore 2'] = []
+            return_dict['Larghezza 2'] = []
+            return_dict['Lunghezza 2'] = []
+
             if self.values['-SPLIT MEASURES-']:
                 excel_list = ex_list
                 for df in excel_list:
                     for row in self.getRowListDF(df, True):
+                        row_index = self.getRowListDF(df, True).index(row)
                         for cell in row:
                             if not cell:
                                 continue
@@ -579,24 +579,46 @@ if __name__ == '__main__':
 
                                 if measure_list:
                                     if len(measure_list) == 2:
-                                        return_dict['Lunghezza'].append(measure_list[0])
-                                        return_dict['Larghezza'].append(measure_list[1])
-                                        return_dict['Spessore'].append('')
+                                        try:
+                                            _ = return_dict['Lunghezza 1'][row_index]
+                                            return_dict['Lunghezza 2'].append(measure_list[0])
+                                            return_dict['Larghezza 2'].append(measure_list[1])
+                                            return_dict['Spessore 2'].append('')
+                                        except IndexError:
+                                            return_dict['Lunghezza 1'].append(measure_list[0])
+                                            return_dict['Larghezza 1'].append(measure_list[1])
+                                            return_dict['Spessore 1'].append('')
                                     elif len(measure_list) == 3:
-                                        return_dict['Lunghezza'].append(measure_list[0])
-                                        return_dict['Larghezza'].append(measure_list[1])
-                                        return_dict['Spessore'].append(measure_list[2])
+                                        try:
+                                            _ = return_dict['Lunghezza 1'][row_index]
+                                            return_dict['Lunghezza 2'].append(measure_list[0])
+                                            return_dict['Larghezza 2'].append(measure_list[1])
+                                            return_dict['Spessore 2'].append(measure_list[2])
+                                        except IndexError:
+                                            return_dict['Lunghezza 1'].append(measure_list[0])
+                                            return_dict['Larghezza 1'].append(measure_list[1])
+                                            return_dict['Spessore 1'].append(measure_list[2])
                                 elif 'Ø' in word:
-                                    return_dict['Lunghezza'].append(word[1:len(word)])
-                                    return_dict['Spessore'].append('')
+                                    try:
+                                        _ = return_dict['Lunghezza 1'][row_index]
+                                        return_dict['Lunghezza 2'].append(word[1:len(word)])
+                                        return_dict['Spessore 2'].append('')
+                                    except IndexError:
+                                        return_dict['Lunghezza 1'].append(word[1:len(word)])
+                                        return_dict['Spessore 1'].append('')
                                 elif 'L=' in word:
-                                    return_dict['Larghezza'].append(word[2:len(word)])
+                                    try:
+                                        _ = return_dict['Larghezza 1'][row_index]
+                                        return_dict['Larghezza 2'].append(word[2:len(word)])
+                                    except IndexError:
+                                        return_dict['Larghezza 1'].append(word[2:len(word)])
             return return_dict
 
         def removeRows(self, row_number, df):
             """
             Used to remove row_number-1 of rows from the top of the specified df object
             """
+            row_number -= 1
             list_rows = self.getRowListDF(df, True)
             df_length = self.getNofRows(df)
             # Gets a list from row_number to df_length
@@ -614,6 +636,7 @@ if __name__ == '__main__':
             new_cols = []
             for column in df.columns:
                 original_cols.append(column)
+            '''
             index = 0
             for row in list_rows:
                 if index == row_number - 2:
@@ -623,6 +646,8 @@ if __name__ == '__main__':
                             column = 'Unnamed: ' + str(i)
                         new_cols.append(column)
                         i += 1
+                else:
+                    break
                 index += 1
             for column in original_cols:
                 i = original_cols.index(column)
@@ -630,6 +655,7 @@ if __name__ == '__main__':
                     col_dict[column] = new_cols[i]
                 except IndexError:
                     col_dict[column] = 'Unnamed ' + str(i)
+            '''
             df = df.rename(columns=col_dict)
             # Returns a df containing all rows from row_number to the end
             return df
@@ -639,8 +665,11 @@ if __name__ == '__main__':
             Used to get list of df objs
             """
             excel_list = []
+            i = 0
             for file_path in self.excel:
+                file_path = sg.user_settings_get_entry('-demos folder-') + '/' + file_path
                 excel_list.append(pd.read_excel(file_path))
+                i += 1
             return excel_list
 
         def filterByColumn(self, columns: list, excel_list: list):
@@ -1367,17 +1396,17 @@ if __name__ == '__main__':
 
         # Creates a measures dictionary if the checkbox is active, else it is empty
         measures_dict = celex_excel.separateMeasures(excel_list_original)
-        df_buff = pd.DataFrame()
+        df_measures = pd.DataFrame()
         for column in measures_dict:
-            df_buff[column] = measures_dict[column]
+            df_measures[column] = measures_dict[column]
         # Reindex excel_list_original to fit the join function
-        df_buff_length = celex_excel.getNofRows(df_buff)
+        df_measures_length = celex_excel.getNofRows(df_measures)
         if excel_list:
-            if celex_excel.getNofRows(excel_list[0]) == df_buff_length:
-                excel_list[0] = excel_list[0].set_axis(list0toN(df_buff_length - 1), axis='index')
-                excel_list[0] = excel_list[0].join(df_buff)
+            if celex_excel.getNofRows(excel_list[0]) == df_measures_length:
+                excel_list[0] = excel_list[0].set_axis(list0toN(df_measures_length - 1), axis='index')
+                excel_list[0] = excel_list[0].join(df_measures)
         else:
-            excel_list.append(df_buff)
+            excel_list.append(df_measures)
 
         if values['-MATERIALS LIST-']:
             # Creates a material dict and a df_buff, then joins
@@ -1527,7 +1556,6 @@ if __name__ == '__main__':
                 if settings_window() is True:
                     window.close()
                     window = make_window()
-                    file_list_dict = get_file_list_dict()
                     file_list = get_file_list()
                     window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
             if event == '-CLEAN FOLDERNAME IN-':
