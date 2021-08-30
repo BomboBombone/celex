@@ -1418,7 +1418,6 @@ if __name__ == '__main__':
 
         old_typed_value = None
 
-        file_list_dict = get_file_list_dict()
         file_list = get_file_list()
         window = make_window()
         window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
