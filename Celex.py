@@ -92,7 +92,7 @@ if __name__ == '__main__':
         :rtype: str
         """
 
-        demo_path = sg.user_settings_get_entry('-demos folder-', os.path.dirname(__file__))
+        demo_path = sg.user_settings_get_entry('-demos folder-', "C:/Program Files/Celex/")
         if demo_path == 'C' or demo_path == 'C:':
             demo_path = 'C:/'
         return demo_path
@@ -1418,7 +1418,6 @@ if __name__ == '__main__':
 
         old_typed_value = None
 
-        file_list_dict = get_file_list_dict()
         file_list = get_file_list()
         window = make_window()
         window['-FILTER NUMBER-'].update(f'{len(file_list)} file')
