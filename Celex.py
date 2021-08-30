@@ -99,7 +99,6 @@ if __name__ == '__main__':
             demo_path = 'C:/'
         return demo_path
 
-
     def get_global_editor():
         """
         Get the path to the editor based on user settings or on PySimpleGUI's global settings
@@ -551,7 +550,7 @@ if __name__ == '__main__':
                         for cell in row:
                             if not cell:
                                 continue
-                            if ' ' not in str(cell):
+                            if ' ' not in str(cell) and 'x' not in str(cell):
                                 continue
                             cell_list = str(cell).split(' ')
                             measures_found = False
@@ -1377,6 +1376,8 @@ if __name__ == '__main__':
             if celex_excel.getNofRows(excel_list[0]) == df_buff_length:
                 excel_list[0] = excel_list[0].set_axis(list0toN(df_buff_length - 1), axis='index')
                 excel_list[0] = excel_list[0].join(df_buff)
+        else:
+            excel_list.append(df_buff)
 
         if values['-MATERIALS LIST-']:
             # Creates a material dict and a df_buff, then joins
