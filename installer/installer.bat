@@ -3,9 +3,7 @@
 set n=^&echo.
 
 cd %~dp0
-call :check_Permissions
 
-if %errorlevel% EQU 0 (
 call :check_python
 call :install_python
 call :install_pip
@@ -19,7 +17,7 @@ del get-pip.py >nul 2>nul
 del python-installer.exe >nul 2>nul
 del create_shortcut.ps1 >nul 2>nul
 (goto) 2>nul & del "%~f0"
-)
+
 ::Checks if the console has been opened with admin privileges
 
 :check_Permissions
