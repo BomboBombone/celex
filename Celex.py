@@ -95,6 +95,8 @@ if __name__ == '__main__':
         demo_path = sg.user_settings_get_entry('-demos folder-', "C:/Program Files/Celex/")
         if demo_path == 'C' or demo_path == 'C:':
             demo_path = 'C:/'
+        if demo_path == '':
+            demo_path = 'C:/'
         return demo_path
 
 
