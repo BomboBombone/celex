@@ -545,11 +545,21 @@ if __name__ == '__main__':
             if self.values['-SPLIT MEASURES-']:
                 excel_list = ex_list
                 for df in excel_list:
+                    first_to_second = []
+                    second_to_first = []
+                    first_col = 0
+                    second_col = 0
                     for row in self.getRowListDF(df, True):
                         row_index = self.getRowListDF(df, True).index(row)
                         for cell in row:
-                            if not cell:
-                                continue
+                            if first_col != 0:
+                                if not (first_col == row.index(cell) or second_col == row.index(cell)):
+                                    continue
+                                if cell == 0 or cell == '0' or cell == '' or cell == ' ':
+                                    if row.index(cell) == first_col:
+                                        first_to_second.append(row_index)
+                                    elif row.index(cell) == second_col:
+                                        second_to_first.append(row_index)
                             if ' ' not in str(cell) and 'x' not in str(cell) and 'X' not in str(cell):
                                 continue
                             cell_list = str(cell).split(' ')
@@ -557,9 +567,11 @@ if __name__ == '__main__':
                             for word in cell_list:
                                 if measures_found:
                                     break
+
                                 word_index = cell_list.index(word)
                                 if 'x' not in word and 'X' not in word and 'Ø' not in word and 'L=' not in word and 'ø' not in word:
                                     continue
+
                                 measure_list = []
                                 if word == 'x' or word == 'X':
                                     measure_list = [cell_list[word_index - 1], cell_list[word_index + 1]]
@@ -572,48 +584,80 @@ if __name__ == '__main__':
                                         measure_list = word.split('X')
 
                                 for measure in measure_list:
-                                    i = measure_list.index(measure)
+                                    measure_index = measure_list.index(measure)
                                     if measure.startswith('Ø') or measure.startswith('ø'):
                                         measure = measure[1:len(measure)]
                                     elif measure.startswith('L='):
                                         measure = measure[2:len(measure)]
-                                    measure_list[i] = measure
+                                    measure_list[measure_index] = measure
 
                                 if measure_list:
                                     if len(measure_list) == 2:
                                         try:
                                             _ = return_dict['Larghezza 1'][row_index]
-                                            return_dict['Lunghezza 2'].append(measure_list[0])
-                                            return_dict['Larghezza 2'].append(measure_list[1])
-                                            return_dict['Spessore 2'].append('')
-                                        except IndexError:
+                                            return_dict['Lunghezza 2'][row_index] = (measure_list[0])
+                                            return_dict['Larghezza 2'][row_index] = (measure_list[1])
+                                            return_dict['Spessore 2'][row_index] = ('')
+                                        except Exception:
                                             return_dict['Lunghezza 1'].append(measure_list[0])
                                             return_dict['Larghezza 1'].append(measure_list[1])
                                             return_dict['Spessore 1'].append('')
+                                            return_dict['Lunghezza 2'].append('')
+                                            return_dict['Larghezza 2'].append('')
+                                            return_dict['Spessore 2'].append('')
                                     elif len(measure_list) == 3:
                                         try:
                                             _ = return_dict['Larghezza 1'][row_index]
-                                            return_dict['Lunghezza 2'].append(measure_list[0])
-                                            return_dict['Larghezza 2'].append(measure_list[1])
-                                            return_dict['Spessore 2'].append(measure_list[2])
-                                        except IndexError:
+                                            return_dict['Lunghezza 2'][row_index] = (measure_list[0])
+                                            return_dict['Larghezza 2'][row_index] = (measure_list[1])
+                                            return_dict['Spessore 2'][row_index] = (measure_list[2])
+                                        except Exception:
                                             return_dict['Lunghezza 1'].append(measure_list[0])
                                             return_dict['Larghezza 1'].append(measure_list[1])
                                             return_dict['Spessore 1'].append(measure_list[2])
+                                            return_dict['Lunghezza 2'].append('')
+                                            return_dict['Larghezza 2'].append('')
+                                            return_dict['Spessore 2'].append('')
                                 elif 'Ø' in word or 'ø' in word:
                                     try:
                                         _ = return_dict['Larghezza 1'][row_index]
-                                        return_dict['Lunghezza 2'].append(word[1:len(word)])
-                                        return_dict['Spessore 2'].append('')
-                                    except IndexError:
+                                        return_dict['Lunghezza 2'][row_index] = (word[1:len(word)])
+                                        return_dict['Spessore 2'][row_index] = ('')
+                                    except Exception:
                                         return_dict['Lunghezza 1'].append(word[1:len(word)])
                                         return_dict['Spessore 1'].append('')
+                                        return_dict['Lunghezza 2'].append('')
+                                        return_dict['Spessore 2'].append('')
                                 elif 'L=' in word:
                                     try:
                                         _ = return_dict['Larghezza 1'][row_index]
-                                        return_dict['Larghezza 2'].append(word[2:len(word)])
-                                    except IndexError:
+                                        return_dict['Larghezza 2'][row_index] = (word[2:len(word)])
+                                    except Exception:
                                         return_dict['Larghezza 1'].append(word[2:len(word)])
+                                        return_dict['Larghezza 2'].append('')
+
+                                if row.index(cell) >= first_col:
+                                    if row.index(cell) < second_col:
+                                        first_col = row.index(cell)
+                                    else:
+                                        second_col = row.index(cell)
+                                else:
+                                    first_col = row.index(cell)
+                    i = 0
+                    for row_ind in first_to_second:
+                        return_dict['Spessore 2'][row_ind] = return_dict['Spessore 1'][row_ind]
+                        return_dict['Larghezza 2'][row_ind] = return_dict['Larghezza 1'][row_ind]
+                        return_dict['Lunghezza 2'][row_ind] = return_dict['Lunghezza 1'][row_ind]
+                        return_dict['Spessore 1'][row_ind] = ''
+                        return_dict['Larghezza 1'][row_ind] = ''
+                        return_dict['Lunghezza 1'][row_ind] = ''
+                    for row_ind in second_to_first:
+                        return_dict['Spessore 1'][row_ind] = return_dict['Spessore 2'][row_ind]
+                        return_dict['Larghezza 1'][row_ind] = return_dict['Larghezza 2'][row_ind]
+                        return_dict['Lunghezza 1'][row_ind] = return_dict['Lunghezza 2'][row_ind]
+                        return_dict['Spessore 2'][row_ind] = ''
+                        return_dict['Larghezza 2'][row_ind] = ''
+                        return_dict['Lunghezza 2'][row_ind] = ''
             return return_dict
 
         def removeRows(self, row_number, df):
@@ -1324,7 +1368,8 @@ if __name__ == '__main__':
         celex.inputBufferList = celex.ignoreComments()
 
         excel_list_original = celex_excel.getExcelList()
-
+        measures_dict = celex_excel.separateMeasures(excel_list_original)
+        df_measures = pd.DataFrame()
         excel_list_original = celex_excel.removeSpaces(excel_list_original)
 
         # Get all the rules and column filters
@@ -1397,8 +1442,6 @@ if __name__ == '__main__':
             excel_list[0] = excel_list[0].join(df_buff)
 
         # Creates a measures dictionary if the checkbox is active, else it is empty
-        measures_dict = celex_excel.separateMeasures(excel_list_original)
-        df_measures = pd.DataFrame()
         for column in measures_dict:
             df_measures[column] = measures_dict[column]
         # Reindex excel_list_original to fit the join function
@@ -1482,7 +1525,7 @@ if __name__ == '__main__':
                 for file in values['-DEMO LIST-']:
                     # Takes the entry selected by the user and sets full_filename to the path of such file
                     full_filename, line = file, 1
-                    full_filename = sg.user_settings_get_entry('-demos folder-') + '\\' + full_filename
+                    full_filename = sg.user_settings_get_entry('-demos folder-') + '/' + full_filename
                     if line is not None:
                         if using_local_editor():
                             execute_command_subprocess(editor_program, full_filename)
