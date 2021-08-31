@@ -511,14 +511,14 @@ if __name__ == '__main__':
                 valid_values = 0
                 try:
                     for cell in list_row[0]:
-                        if cell:
+                        if cell or cell == 0:
                             valid_values += 1
                 except IndexError:
                     pass
                 for row in list_row:
                     to_drop_values = 0
                     for cell in row:
-                        if cell:
+                        if cell or cell == 0:
                             to_drop_values += 1
                     if to_drop_values == valid_values:
                         continue
@@ -550,7 +550,7 @@ if __name__ == '__main__':
                         for cell in row:
                             if not cell:
                                 continue
-                            if ' ' not in str(cell) and 'x' not in str(cell):
+                            if ' ' not in str(cell) and 'x' not in str(cell) and 'X' not in str(cell):
                                 continue
                             cell_list = str(cell).split(' ')
                             measures_found = False
@@ -558,20 +558,22 @@ if __name__ == '__main__':
                                 if measures_found:
                                     break
                                 word_index = cell_list.index(word)
-                                if 'x' not in word and 'Ø' not in word and 'L=' not in word:
+                                if 'x' not in word and 'X' not in word and 'Ø' not in word and 'L=' not in word and 'ø' not in word:
                                     continue
                                 measure_list = []
-                                if word == 'x':
+                                if word == 'x' or word == 'X':
                                     measure_list = [cell_list[word_index - 1], cell_list[word_index + 1]]
-                                    if cell_list[word_index + 2] == 'x':
+                                    if cell_list[word_index + 2] == 'x' or cell_list[word_index + 2] == 'X':
                                         measure_list.append(cell_list[word_index + 3])
                                     measures_found = True
-                                elif 'x' in word:
+                                elif 'x' in word or 'X' in word:
                                     measure_list = word.split('x')
+                                    if len(measure_list) == 1:
+                                        measure_list = word.split('X')
 
                                 for measure in measure_list:
                                     i = measure_list.index(measure)
-                                    if measure.startswith('Ø'):
+                                    if measure.startswith('Ø') or measure.startswith('ø'):
                                         measure = measure[1:len(measure)]
                                     elif measure.startswith('L='):
                                         measure = measure[2:len(measure)]
@@ -580,7 +582,7 @@ if __name__ == '__main__':
                                 if measure_list:
                                     if len(measure_list) == 2:
                                         try:
-                                            _ = return_dict['Lunghezza 1'][row_index]
+                                            _ = return_dict['Larghezza 1'][row_index]
                                             return_dict['Lunghezza 2'].append(measure_list[0])
                                             return_dict['Larghezza 2'].append(measure_list[1])
                                             return_dict['Spessore 2'].append('')
@@ -590,7 +592,7 @@ if __name__ == '__main__':
                                             return_dict['Spessore 1'].append('')
                                     elif len(measure_list) == 3:
                                         try:
-                                            _ = return_dict['Lunghezza 1'][row_index]
+                                            _ = return_dict['Larghezza 1'][row_index]
                                             return_dict['Lunghezza 2'].append(measure_list[0])
                                             return_dict['Larghezza 2'].append(measure_list[1])
                                             return_dict['Spessore 2'].append(measure_list[2])
@@ -598,9 +600,9 @@ if __name__ == '__main__':
                                             return_dict['Lunghezza 1'].append(measure_list[0])
                                             return_dict['Larghezza 1'].append(measure_list[1])
                                             return_dict['Spessore 1'].append(measure_list[2])
-                                elif 'Ø' in word:
+                                elif 'Ø' in word or 'ø' in word:
                                     try:
-                                        _ = return_dict['Lunghezza 1'][row_index]
+                                        _ = return_dict['Larghezza 1'][row_index]
                                         return_dict['Lunghezza 2'].append(word[1:len(word)])
                                         return_dict['Spessore 2'].append('')
                                     except IndexError:
@@ -626,7 +628,7 @@ if __name__ == '__main__':
             if row_number < 2:
                 row_number = 2
             for i in range(1, df_length + 1):
-                if i >= row_number:
+                if i >= row_number - 1:
                     listNtoLen.append(i - 1)
             df = df.filter(items=listNtoLen, axis=0)
 
@@ -1480,8 +1482,7 @@ if __name__ == '__main__':
                 for file in values['-DEMO LIST-']:
                     # Takes the entry selected by the user and sets full_filename to the path of such file
                     full_filename, line = file, 1
-                    full_filename = full_filename.split(' ')[1]
-                    full_filename = full_filename[1:len(full_filename) - 1]
+                    full_filename = sg.user_settings_get_entry('-demos folder-') + '\\' + full_filename
                     if line is not None:
                         if using_local_editor():
                             execute_command_subprocess(editor_program, full_filename)
