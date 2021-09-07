@@ -468,14 +468,16 @@ if __name__ == '__main__':
             Returns a dictionary with row_number and material
             """
             return_value = {}
+            i = 0
+            for material in materials_list:
+                materials_list[i] = materials_list[i].replace(',', '.')
+                i += 1
             for df in df_list:
                 list_row = self.getRowListDF(df, False)
                 for row in list_row:
                     row_index = row[0]
                     return_value[row_index] = ''
                     for cell in row:
-                        if row.index(cell) == 1:
-                            continue
                         for string in str(cell).split(' '):
                             for material in materials_list:
                                 if material in string:
@@ -484,7 +486,7 @@ if __name__ == '__main__':
                         return_value[row_index] = ''
             return return_value
 
-        def removeSpaces(self, ex_list, removeLines=True):
+        def removeSpaces(self, ex_list, do_not_remove = [], removeLines=True):
             """
             Returns a list of all df objects dropped of all the unnamed columns and empty cells
             """
@@ -516,6 +518,8 @@ if __name__ == '__main__':
                 except IndexError:
                     pass
                 for row in list_row:
+                    if list_row.index(row) in do_not_remove:
+                        continue
                     to_drop_values = 0
                     for cell in row:
                         if cell or cell == 0:
@@ -541,6 +545,7 @@ if __name__ == '__main__':
             return_dict['Spessore 2'] = []
             return_dict['Larghezza 2'] = []
             return_dict['Lunghezza 2'] = []
+            return_list = []
 
             if self.values['-SPLIT MEASURES-']:
                 excel_list = ex_list
@@ -597,7 +602,7 @@ if __name__ == '__main__':
                                             _ = return_dict['Larghezza 1'][row_index]
                                             return_dict['Lunghezza 2'][row_index] = (measure_list[0])
                                             return_dict['Larghezza 2'][row_index] = (measure_list[1])
-                                            return_dict['Spessore 2'][row_index] = ('')
+                                            return_dict['Spessore 2'][row_index] = ''
                                         except Exception:
                                             return_dict['Lunghezza 1'].append(measure_list[0])
                                             return_dict['Larghezza 1'].append(measure_list[1])
@@ -605,6 +610,7 @@ if __name__ == '__main__':
                                             return_dict['Lunghezza 2'].append('')
                                             return_dict['Larghezza 2'].append('')
                                             return_dict['Spessore 2'].append('')
+                                            return_list.append(row_index)
                                     elif len(measure_list) == 3:
                                         try:
                                             _ = return_dict['Larghezza 1'][row_index]
@@ -618,6 +624,7 @@ if __name__ == '__main__':
                                             return_dict['Lunghezza 2'].append('')
                                             return_dict['Larghezza 2'].append('')
                                             return_dict['Spessore 2'].append('')
+                                            return_list.append(row_index)
                                 elif 'Ø' in word or 'ø' in word:
                                     try:
                                         _ = return_dict['Larghezza 1'][row_index]
@@ -628,6 +635,7 @@ if __name__ == '__main__':
                                         return_dict['Spessore 1'].append('')
                                         return_dict['Lunghezza 2'].append('')
                                         return_dict['Spessore 2'].append('')
+                                        return_list.append(row_index)
                                 elif 'L=' in word:
                                     try:
                                         _ = return_dict['Larghezza 1'][row_index]
@@ -635,6 +643,7 @@ if __name__ == '__main__':
                                     except Exception:
                                         return_dict['Larghezza 1'].append(word[2:len(word)])
                                         return_dict['Larghezza 2'].append('')
+                                        return_list.append(row_index)
 
                                 if row.index(cell) >= first_col:
                                     if row.index(cell) < second_col:
@@ -658,7 +667,7 @@ if __name__ == '__main__':
                         return_dict['Spessore 2'][row_ind] = ''
                         return_dict['Larghezza 2'][row_ind] = ''
                         return_dict['Lunghezza 2'][row_ind] = ''
-            return return_dict
+            return return_dict, return_list
 
         def removeRows(self, row_number, df):
             """
@@ -1368,9 +1377,9 @@ if __name__ == '__main__':
         celex.inputBufferList = celex.ignoreComments()
 
         excel_list_original = celex_excel.getExcelList()
-        measures_dict = celex_excel.separateMeasures(excel_list_original)
+        measures_dict, to_add_rows = celex_excel.separateMeasures(excel_list_original)
         df_measures = pd.DataFrame()
-        excel_list_original = celex_excel.removeSpaces(excel_list_original)
+        excel_list_original = celex_excel.removeSpaces(excel_list_original, to_add_rows)
 
         # Get all the rules and column filters
         rule_list_dict = celex.getRuleListDict()
@@ -1394,7 +1403,6 @@ if __name__ == '__main__':
         splitDict = {}
 
         for entry in excel_list_original:
-            entry_index = excel_list_original.index(entry)
             list_row = celex.getRowListDF(entry, True)
             for row in list_row:
                 # Creates a to_separate list where each entry is a
@@ -1450,6 +1458,7 @@ if __name__ == '__main__':
             if celex_excel.getNofRows(excel_list[0]) == df_measures_length:
                 excel_list[0] = excel_list[0].set_axis(list0toN(df_measures_length - 1), axis='index')
                 excel_list[0] = excel_list[0].join(df_measures)
+
         else:
             excel_list.append(df_measures)
 
