@@ -580,8 +580,11 @@ if __name__ == '__main__':
                                 measure_list = []
                                 if word == 'x' or word == 'X':
                                     measure_list = [cell_list[word_index - 1], cell_list[word_index + 1]]
-                                    if cell_list[word_index + 2] == 'x' or cell_list[word_index + 2] == 'X':
-                                        measure_list.append(cell_list[word_index + 3])
+                                    try:
+                                        if cell_list[word_index + 2] == 'x' or cell_list[word_index + 2] == 'X':
+                                            measure_list.append(cell_list[word_index + 3])
+                                    except IndexError:
+                                        pass
                                     measures_found = True
                                 elif 'x' in word or 'X' in word:
                                     measure_list = word.split('x')
@@ -627,6 +630,11 @@ if __name__ == '__main__':
                                             return_list.append(row_index)
                                 elif 'Ø' in word or 'ø' in word:
                                     try:
+                                        try:
+                                            if cell_list[cell_list.index(word) + 1] == 'x' or cell_list[cell_list.index(word) + 1] == 'X':
+                                                continue
+                                        except IndexError:
+                                            pass
                                         _ = return_dict['Larghezza 1'][row_index]
                                         return_dict['Lunghezza 2'][row_index] = (word[1:len(word)])
                                         return_dict['Spessore 2'][row_index] = ('')
