@@ -96,6 +96,7 @@ pip install openpyxl >nul 2>&1
 pip install pysimplegui >nul 2>&1
 pip install xlrd >nul 2>&1
 pip install pandas >nul 2>&1
+pip install beautifulsoup4 >nul 2>&1
 EXIT /B 0
 
 :moveCelex

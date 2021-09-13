@@ -3,6 +3,7 @@ This is a copyrighted program, but free to use. Just need some credit for this :
 Made with love by:
                                                                      BomboBombone
 """
+import shutil
 import zipfile
 
 if __name__ == '__main__':
@@ -1815,7 +1816,6 @@ if __name__ == '__main__':
             sg.user_settings_set_entry('-last version-', current_commits)
         else:
             if int(current_commits) > int(sg.user_settings_get_entry('-last version-')):
-                os.remove(sys.argv[0])
                 url_update = 'https://github.com/BomboBombone/celex/archive/refs/heads/main.zip'
                 r = requests.get(url_update, allow_redirects=True)
                 open('update.zip', 'wb').write(r.content)
@@ -1828,7 +1828,10 @@ if __name__ == '__main__':
                         packz.extract(name)
 
                 pz.close()
-
+                os.remove('update.zip')
+                cwd = os.getcwd()
+                shutil.move(cwd + '\\celex-main\\Celex.py', cwd + '\\Celex.py')
+                os.remove('celex-main')
         try:
             version = sg.version
             version_parts = version.split('.')
