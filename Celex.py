@@ -1832,7 +1832,7 @@ if __name__ == '__main__':
                 os.remove('update.zip')
                 cwd = os.getcwd()
                 shutil.move(cwd + '\\celex-main\\Celex.py', cwd + '\\Celex.py')
-                os.remove('celex-main')
+                os.rmdir('celex-main')
         try:
             version = sg.version
             version_parts = version.split('.')
