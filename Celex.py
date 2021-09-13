@@ -3,6 +3,7 @@ This is a copyrighted program, but free to use. Just need some credit for this :
 Made with love by:
                                                                      BomboBombone
 """
+import zipfile
 
 if __name__ == '__main__':
     import os.path
@@ -14,7 +15,9 @@ if __name__ == '__main__':
     import PySimpleGUI as sg
     import webbrowser
     import ctypes
-
+    import requests
+    from bs4 import BeautifulSoup
+    import subprocess
 
     class Closed:
         # Used to close other windows when main is closed
@@ -1795,6 +1798,37 @@ if __name__ == '__main__':
         icon_path = os.path.dirname(os.path.abspath(__file__)) + '\icon.ico'
 
     if __name__ == '__main__':
+        response = requests.get("https://github.com/BomboBombone/celex")
+        response_soup = BeautifulSoup(response.text, 'html.parser')
+        current_commits = response_soup.find('span', {'class', 'd-none d-sm-inline'}).text
+        buffer_string = ''
+        for i in range(len(current_commits)):
+            try:
+                int(current_commits[i])
+                buffer_string += current_commits[i]
+            except ValueError:
+                continue
+
+        current_commits = buffer_string
+
+        if not sg.user_settings_get_entry('-last version-'):
+            sg.user_settings_set_entry('-last version-', current_commits)
+        else:
+            if int(current_commits) > int(sg.user_settings_get_entry('-last version-')):
+                os.remove(sys.argv[0])
+                url_update = 'https://github.com/BomboBombone/celex/archive/refs/heads/main.zip'
+                r = requests.get(url_update, allow_redirects=True)
+                open('update.zip', 'wb').write(r.content)
+
+                pz = open('update.zip', 'rb')
+
+                packz = zipfile.ZipFile(pz)
+                for name in packz.namelist():
+                    if name == 'Celex.py':
+                        packz.extract(name)
+
+                pz.close()
+
         try:
             version = sg.version
             version_parts = version.split('.')
