@@ -1824,8 +1824,9 @@ if __name__ == '__main__':
 
                 packz = zipfile.ZipFile(pz)
                 for name in packz.namelist():
-                    if name == 'Celex.py':
+                    if 'Celex.py' in name:
                         packz.extract(name)
+                        break
 
                 pz.close()
                 os.remove('update.zip')
